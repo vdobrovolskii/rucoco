@@ -251,9 +251,6 @@ class Application(ttk.Frame):
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
 
-    # def select_handler(self, event: tk.Event):
-    #     print("selection")
-
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
         self.after(duration, lambda: self.status_bar.configure(text=""))
