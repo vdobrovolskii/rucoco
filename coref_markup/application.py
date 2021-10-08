@@ -11,7 +11,7 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
-# TODO: merge entities
+# TODO: merge entities: merge multientities with multientities and add entities to multientities
 # TODO: scroll entities
 # TODO: open files
 # TODO: save files
@@ -39,19 +39,22 @@ class Application(ttk.Frame):
         self.markup.add_span_to_entity(("1.18", "1.19"), 0)
         self.markup.new_entity(("1.32", "1.36"))
         self.markup.new_entity(("1.47", "1.51"))
-        self.markup.merge(self.markup._entities[1], self.markup._entities[2])
+        self.markup.merge(1, 2)
 
         # self.__markup.merge((12, 16), (18, 19))
         # self.__markup.merge((32, 36), (47, 51))
         i = self.markup.new_entity(("1.91", "1.93"), True)
-        self.markup.merge(self.markup._entities[i], self.markup._entities[0])
-        self.markup.merge(self.markup._entities[i], self.markup._entities[1])
+        self.markup.merge(i, 0)
+        self.markup.merge(i, 1)
         #######################################################################
 
         self.entity2label: Dict[int, MarkupLabel] = {}
         self.selected_entity: Optional[int] = None
+        self.popup_menu_entity: Optional[int] = None
 
         self.self_in_self_spans: Dict[Span, int] = {}  # span -> overlapping level
+
+        self.highlights: Set[str] = set()
 
         self.build_colors()
         self.build_widgets()
@@ -77,6 +80,7 @@ class Application(ttk.Frame):
             self.multi_entity_panel
             self.status_bar
             self.text_box
+            self.label_menu
         """
         menubar = tk.Menu(self)
         menubar.add_command(label="Open")
@@ -129,11 +133,21 @@ class Application(ttk.Frame):
                                         command=partial(self.new_entity, multi=True))
         new_mentity_button.pack(side="bottom")
 
+        label_menu = tk.Menu(self, tearoff=0)
+        label_menu.add_command(label="Merge with selected entity",
+                               command=self.merge)
+
         # Registering attributes
         self.entity_panel = entity_panel
         self.multi_entity_panel = multi_entity_panel
         self.status_bar = status_bar
         self.text_box = text_box
+        self.label_menu = label_menu
+
+    def get_entity_color(self, entity_idx: int) -> str:
+        if entity_idx not in self.entity2color:
+            self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
+        return self.entity2color[entity_idx]
 
     def get_highlighting_bitmap(self, span: Span) -> str:
         bitmaps = ["gray50", "gray25", "gray12"]
@@ -142,6 +156,12 @@ class Application(ttk.Frame):
             self.set_status(f"warning: '{self.text_box.get(*span)}' has overlapping level of {overlapping_level}")
             overlapping_level = 2
         return bitmaps[overlapping_level]
+
+    def merge(self):
+        removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
+        if removed_entity is not None:
+            self.color_stack.append(self.entity2color.pop(removed_entity))
+        self.render_entities()
 
     def mouse_handler_label(self, event: tk.Event, entity_idx: int):
         if event.num == LEFT_MOUSECLICK:
@@ -169,7 +189,6 @@ class Application(ttk.Frame):
 
     def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True):
         if event.type is tk.EventType.Enter:
-            self.highlights: Set[str] = set()
             for span in sorted(self.markup.get_spans(entity_idx), key=self.span_length, reverse=True):
                 self.highlights.add(f"h{span}")
                 self.text_box.tag_add(f"h{span}", *span)
@@ -178,18 +197,13 @@ class Application(ttk.Frame):
                                             underline=underline)
             self.entity2label[entity_idx].enter()
         else:
-            for tag in self.highlights:
-                self.text_box.tag_delete(tag)
+            while self.highlights:
+                self.text_box.tag_delete(self.highlights.pop())
             self.entity2label[entity_idx].leave()
 
         if self.markup.is_multi_entity(entity_idx):
-            for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
-                self.mouse_hover_handler(event, inner_entity_idx, underline=False)
-
-    def get_entity_color(self, entity_idx: int) -> str:
-        if entity_idx not in self.entity2color:
-            self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
-        return self.entity2color[entity_idx]
+                for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
+                    self.mouse_hover_handler(event, inner_entity_idx, underline=False)
 
     def new_entity(self, multi: bool = False):
         try:
@@ -199,6 +213,16 @@ class Application(ttk.Frame):
             self.render_entities()
         except RuntimeError as e:
             self.set_status(e.args[0])
+
+    def popup_menu(self, event: tk.Event, entity_idx: int):
+        if self.selected_entity is None or self.selected_entity == entity_idx:
+            return
+        try:
+            self.popup_menu_entity = entity_idx
+            w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
+            self.label_menu.tk_popup(event.x_root + w // 2, event.y_root + h // 2, 0)
+        finally:
+            self.label_menu.grab_release()
 
     def render_entities(self):
         for child in chain(self.entity_panel.winfo_children(), self.multi_entity_panel.winfo_children()):
@@ -232,6 +256,7 @@ class Application(ttk.Frame):
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<ButtonRelease>", partial(self.mouse_handler_label, entity_idx=entity_idx))
+            label.bind("<Button-3>", partial(self.popup_menu, entity_idx=entity_idx))
             self.entity2label[entity_idx] = label
 
         # Because tkinter doesn't support several layers of tags, manually

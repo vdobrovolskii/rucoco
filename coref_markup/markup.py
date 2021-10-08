@@ -8,17 +8,19 @@ class Entity:
     def __init__(self, idx: int):
         self.idx = idx
         self.spans: Set[Span] = set()
+        self.part_of: Set[MultiEntity] = set()
 
     def __hash__(self) -> int:
         return self.idx
 
     def update(self, another: "Entity"):
-        """ Adds spans from another into self. """
+        """ Moves spans from another into self. """
         if self is another:
             raise RuntimeError(f"error: cannot merge into itself")
         if isinstance(another, MultiEntity) != isinstance(self, MultiEntity):
             raise RuntimeError(f"error: cannot merge entities of different types")
         self.spans.update(another.spans)
+        another.spans = set()
 
 
 class MultiEntity(Entity):
@@ -27,10 +29,13 @@ class MultiEntity(Entity):
         self.entities: Set[Entity] = set()
 
     def update(self, another: "MultiEntity"):
-        """ Adds spans and entitites from another into self. """
+        """ Moves spans and entitites from another into self. """
         super().update(another)
-        self.entities.update(another.entities)
-
+        while another.entities:
+            entity = another.entities.pop()
+            entity.part_of.remove(entity)
+            entity.part_of.add(self)
+            self.entities.add(entity)
 
 class Markup:
     def __init__(self):
@@ -66,17 +71,25 @@ class Markup:
     def is_multi_entity(self, entity_idx: int) -> bool:
         return isinstance(self._entities[entity_idx], MultiEntity)
 
-    def merge(self, a: Entity, b: Entity):
+    def merge(self, a_idx: int, b_idx: int) -> Optional[int]:
+        """ Returns the id of the entity that is no more"""
+        a = self._entities[a_idx]
+        b = self._entities[b_idx]
         if isinstance(a, MultiEntity) == isinstance(b, MultiEntity):
             a.update(b)
             for span in b.spans:
                 self._span2entity[span] = a
+            for mentity in b.part_of:
+                mentity.entities.remove(b)
             self._entities[b.idx] = None
+            return b_idx
         else:
             multi, single = (a, b) if isinstance(a, MultiEntity) else (b, a)
             multi.entities.add(single)
+            single.part_of.add(multi)
 
     def new_entity(self, span: Span, multi: bool = False) -> int:
+        """ Return the new entity's id """
         if span in self._span2entity:
             raise RuntimeError(f"error: span already belongs to entity {self._span2entity[span].idx}")
         cls = Entity if not multi else MultiEntity
