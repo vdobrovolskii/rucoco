@@ -11,8 +11,6 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
-# TODO: hover to show multientity as well
-# TODO: merge entities: merge multientities with multientities and add entities to multientities
 # TODO: scroll entities
 # TODO: open files
 # TODO: save files
@@ -189,7 +187,7 @@ class Application(ttk.Frame):
             self.add_span_to_entity(self.text_box.get_selection_indices(), self.selected_entity)
             self.text_box.clear_selection()
 
-    def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True):
+    def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True, recursive: bool = True):
         if event.type is tk.EventType.Enter:
             for span in sorted(self.markup.get_spans(entity_idx), key=self.span_length, reverse=True):
                 self.highlights.add(f"h{span}")
@@ -203,9 +201,13 @@ class Application(ttk.Frame):
                 self.text_box.tag_delete(self.highlights.pop())
             self.entity2label[entity_idx].leave()
 
-        if self.markup.is_multi_entity(entity_idx):
+        if recursive:
+            if self.markup.is_multi_entity(entity_idx):
                 for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
-                    self.mouse_hover_handler(event, inner_entity_idx, underline=False)
+                    self.mouse_hover_handler(event, inner_entity_idx, underline=False, recursive=False)
+
+            for outer_entity_idx in self.markup.get_outer_entities(entity_idx):
+                self.mouse_hover_handler(event, outer_entity_idx, underline=False, recursive=False)
 
     def new_entity(self, multi: bool = False):
         try:

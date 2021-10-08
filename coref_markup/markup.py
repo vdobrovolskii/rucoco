@@ -72,6 +72,9 @@ class Markup:
     def get_inner_entities(self, entity_idx: int) -> Iterable[int]:
         return (entity.idx for entity in self._entities[entity_idx].entities)
 
+    def get_outer_entities(self, entity_idx: int) -> Iterable[int]:
+        return (entity.idx for entity in self._entities[entity_idx].part_of)
+
     def get_spans(self, entity_idx: int) -> Iterable[Span]:
         return iter(self._entities[entity_idx].spans)
 
