@@ -42,6 +42,13 @@ class Markup:
         self._span2entity: Dict[Span, Entity] = {}
         self._entities: List[Optional[Entity]] = []
 
+    def add_entity_to_mentity(self, e_idx: int, m_idx: int):
+        entity = self._entities[e_idx]
+        mentity = self._entities[m_idx]
+        assert isinstance(mentity, MultiEntity)
+        mentity.entities.add(entity)
+        entity.part_of.add(mentity)
+
     def add_span_to_entity(self, span: Span, entity_idx: int):
         if span in self._span2entity:
             raise RuntimeError(f"error: span already belongs to entity {self._span2entity[span].idx}")
@@ -75,18 +82,13 @@ class Markup:
         """ Returns the id of the entity that is no more"""
         a = self._entities[a_idx]
         b = self._entities[b_idx]
-        if isinstance(a, MultiEntity) == isinstance(b, MultiEntity):
-            a.update(b)
-            for span in b.spans:
-                self._span2entity[span] = a
-            for mentity in b.part_of:
-                mentity.entities.remove(b)
-            self._entities[b.idx] = None
-            return b_idx
-        else:
-            multi, single = (a, b) if isinstance(a, MultiEntity) else (b, a)
-            multi.entities.add(single)
-            single.part_of.add(multi)
+        a.update(b)
+        for span in b.spans:
+            self._span2entity[span] = a
+        for mentity in b.part_of:
+            mentity.entities.remove(b)
+        self._entities[b.idx] = None
+        return b_idx
 
     def new_entity(self, span: Span, multi: bool = False) -> int:
         """ Return the new entity's id """

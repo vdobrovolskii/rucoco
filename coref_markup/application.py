@@ -11,6 +11,7 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
+# TODO: hover to show multientity as well
 # TODO: merge entities: merge multientities with multientities and add entities to multientities
 # TODO: scroll entities
 # TODO: open files
@@ -44,8 +45,8 @@ class Application(ttk.Frame):
         # self.__markup.merge((12, 16), (18, 19))
         # self.__markup.merge((32, 36), (47, 51))
         i = self.markup.new_entity(("1.91", "1.93"), True)
-        self.markup.merge(i, 0)
-        self.markup.merge(i, 1)
+        self.markup.add_entity_to_mentity(0, i)
+        self.markup.add_entity_to_mentity(1, i)
         #######################################################################
 
         self.entity2label: Dict[int, MarkupLabel] = {}
@@ -134,8 +135,8 @@ class Application(ttk.Frame):
         new_mentity_button.pack(side="bottom")
 
         label_menu = tk.Menu(self, tearoff=0)
-        label_menu.add_command(label="Merge with selected entity",
-                               command=self.merge)
+        label_menu.add_command(label="Merge", command=self.merge)
+        label_menu.add_command(label="Set as parent", command=self.set_parent)
 
         # Registering attributes
         self.entity_panel = entity_panel
@@ -219,6 +220,19 @@ class Application(ttk.Frame):
             return
         try:
             self.popup_menu_entity = entity_idx
+
+            # Only allowing merges of the same type (single + single or multi + multi)
+            if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
+                self.label_menu.entryconfigure("Merge", state="active")
+            else:
+                self.label_menu.entryconfigure("Merge", state="disabled")
+
+            # Only MultiEntity can be set as parent
+            if self.markup.is_multi_entity(self.popup_menu_entity):
+                self.label_menu.entryconfigure("Set as parent", state="active")
+            else:
+                self.label_menu.entryconfigure("Set as parent", state="disabled")
+
             w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
             self.label_menu.tk_popup(event.x_root + w // 2, event.y_root + h // 2, 0)
         finally:
@@ -275,6 +289,9 @@ class Application(ttk.Frame):
 
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
+
+    def set_parent(self):
+        self.markup.add_entity_to_mentity(self.selected_entity, self.popup_menu_entity)
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
