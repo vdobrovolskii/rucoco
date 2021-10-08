@@ -78,6 +78,9 @@ class Markup:
     def is_multi_entity(self, entity_idx: int) -> bool:
         return isinstance(self._entities[entity_idx], MultiEntity)
 
+    def is_part_of(self, e_idx: int, m_idx: int) -> bool:
+        return self.is_multi_entity(m_idx) and self._entities[e_idx] in self._entities[m_idx].entities
+
     def merge(self, a_idx: int, b_idx: int) -> Optional[int]:
         """ Returns the id of the entity that is no more"""
         a = self._entities[a_idx]
@@ -100,3 +103,10 @@ class Markup:
         self._span2entity[span] = entity
         self._entities.append(entity)
         return entity.idx
+
+    def remove_entity_from_mentity(self, e_idx: int, m_idx: int):
+        entity = self._entities[e_idx]
+        mentity = self._entities[m_idx]
+        assert isinstance(mentity, MultiEntity)
+        mentity.entities.remove(entity)
+        entity.part_of.remove(mentity)

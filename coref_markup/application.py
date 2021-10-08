@@ -137,6 +137,7 @@ class Application(ttk.Frame):
         label_menu = tk.Menu(self, tearoff=0)
         label_menu.add_command(label="Merge", command=self.merge)
         label_menu.add_command(label="Set as parent", command=self.set_parent)
+        label_menu.add_command(label="Unset parent", command=self.unset_parent)
 
         # Registering attributes
         self.entity_panel = entity_panel
@@ -229,9 +230,15 @@ class Application(ttk.Frame):
 
             # Only MultiEntity can be set as parent
             if self.markup.is_multi_entity(self.popup_menu_entity):
-                self.label_menu.entryconfigure("Set as parent", state="active")
+                if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
+                    self.label_menu.entryconfigure("Set as parent", state="disabled")
+                    self.label_menu.entryconfigure("Unset parent", state="active")
+                else:
+                    self.label_menu.entryconfigure("Set as parent", state="active")
+                    self.label_menu.entryconfigure("Unset parent", state="disabled")
             else:
                 self.label_menu.entryconfigure("Set as parent", state="disabled")
+                self.label_menu.entryconfigure("Unset parent", state="disabled")
 
             w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
             self.label_menu.tk_popup(event.x_root + w // 2, event.y_root + h // 2, 0)
@@ -299,3 +306,6 @@ class Application(ttk.Frame):
 
     def span_length(self, span: Span) -> int:
         return self.text_box.count(*span, "chars")
+
+    def unset_parent(self):
+        self.markup.remove_entity_from_mentity(self.selected_entity, self.popup_menu_entity)
