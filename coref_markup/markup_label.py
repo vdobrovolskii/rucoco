@@ -7,7 +7,7 @@ class MarkupLabel(tk.Label):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.normal_color = self.cget("background")
-        self.hover_color = utils.get_shade(self.normal_color, 0.8)
+        self.hover_color = utils.multiply_color(self.normal_color, 1.2)
 
     def enter(self):
         self.configure(background=self.hover_color)

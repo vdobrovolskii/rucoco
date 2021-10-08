@@ -177,16 +177,14 @@ class Application(ttk.Frame):
 
     def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True, recursive: bool = True):
         if event.type is tk.EventType.Enter:
-            for span in sorted(self.markup.get_spans(entity_idx), key=self.span_length, reverse=True):
-                self.highlights.add(f"h{span}")
-                self.text_box.tag_add(f"h{span}", *span)
-                self.text_box.tag_configure(f"h{span}",
-                                            bgstipple=self.get_highlighting_bitmap(span),
-                                            underline=underline)
+            for span in self.markup.get_spans(entity_idx):
+                color = self.text_box.tag_cget(f"e{span}", "background")
+                self.text_box.tag_configure(f"e{span}", background=utils.multiply_color(color, 1.2))
             self.entity2label[entity_idx].enter()
         else:
-            while self.highlights:
-                self.text_box.tag_delete(self.highlights.pop())
+            for span in self.markup.get_spans(entity_idx):
+                color = self.text_box.tag_cget(f"e{span}", "background")
+                self.text_box.tag_configure(f"e{span}", background=utils.divide_color(color, 1.2))
             self.entity2label[entity_idx].leave()
 
         if recursive:
@@ -259,11 +257,10 @@ class Application(ttk.Frame):
             # Highlight spans in the text
             spans = sorted(self.markup.get_spans(entity_idx))
             for span in spans:
-                tag_idx = len(all_spans)
-                tag2entity[f"e{tag_idx}"] = entity_idx
+                tag2entity[f"e{span}"] = entity_idx
                 all_spans.append((span, entity_idx))
-                self.text_box.tag_add(f"e{tag_idx}", *span)
-                self.text_box.tag_configure(f"e{tag_idx}", background=color)
+                self.text_box.tag_add(f"e{span}", *span)
+                self.text_box.tag_configure(f"e{span}", background=color)
 
             # Add labels to the right panel
             label_text = self.text_box.get(*spans[0])[:32]
@@ -288,10 +285,10 @@ class Application(ttk.Frame):
                 self_in_self = sum(1 for tag in tags if tag2entity[tag] == entity_idx) - 1
                 if self_in_self:
                     self.self_in_self_spans[span] = self_in_self
-                self.text_box.tag_add(f"+e{entity_idx}{span}", *span)
-                self.text_box.tag_configure(f"+e{entity_idx}{span}",
-                                            background=utils.get_shade(self.get_entity_color(entity_idx),
-                                                                       1 - 0.15 * self_in_self))
+                self.text_box.tag_raise(f"e{span}")
+                self.text_box.tag_configure(f"e{span}",
+                                            background=utils.multiply_color(self.get_entity_color(entity_idx),
+                                                                            1 - 0.15 * self_in_self))
 
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
