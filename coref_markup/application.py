@@ -1,6 +1,7 @@
 from functools import partial
 from itertools import chain, cycle
 import tkinter as tk
+from tkinter import filedialog
 from tkinter import ttk
 from typing import *
 
@@ -30,22 +31,7 @@ class Application(ttk.Frame):
         self.master = master
         self.pack()
 
-        #######################################################################
-        self.__config = {"name": "annotator"}
-        self.__text = "Привет, это Вася! Я давно хотел тебе написать, Иван. Как у тебя дела? У меня норм все вот. Мы." #* 100
         self.markup = Markup()
-        self.markup.new_entity(("1.12", "1.16"))
-        self.markup.add_span_to_entity(("1.18", "1.19"), 0)
-        self.markup.new_entity(("1.32", "1.36"))
-        self.markup.new_entity(("1.47", "1.51"))
-        self.markup.merge(1, 2)
-
-        # self.__markup.merge((12, 16), (18, 19))
-        # self.__markup.merge((32, 36), (47, 51))
-        i = self.markup.new_entity(("1.91", "1.93"), True)
-        self.markup.add_entity_to_mentity(0, i)
-        self.markup.add_entity_to_mentity(1, i)
-        #######################################################################
 
         self.entity2label: Dict[int, MarkupLabel] = {}
         self.selected_entity: Optional[int] = None
@@ -82,7 +68,7 @@ class Application(ttk.Frame):
             self.label_menu
         """
         menubar = tk.Menu(self)
-        menubar.add_command(label="Open")
+        menubar.add_command(label="Open", command=self.open_file)
         menubar.add_command(label="Save")
         self.master.configure(menu=menubar)
 
@@ -93,7 +79,7 @@ class Application(ttk.Frame):
         status_bar.pack(side="bottom", fill="x")
 
         text_box = MarkupText(main_frame, wrap="word")
-        text_box.set_text(self.__text) ########################################
+        # text_box.set_text(self.__text) ########################################
         text_box.bind("<ButtonRelease>", self.mouse_handler_text)
 
         text_box.pack(side="left")
@@ -217,6 +203,15 @@ class Application(ttk.Frame):
             self.render_entities()
         except RuntimeError as e:
             self.set_status(e.args[0])
+
+    def open_file(self):
+        # TODO: first close the current file to avoid losing any data
+        path = filedialog.askopenfilename()
+        if path:
+            self.markup = Markup()
+            with open(path, encoding="utf8") as f:
+                self.text_box.set_text(f.read())
+            self.render_entities()
 
     def popup_menu(self, event: tk.Event, entity_idx: int):
         if self.selected_entity is None or self.selected_entity == entity_idx:
