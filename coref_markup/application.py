@@ -67,9 +67,11 @@ class Application(ttk.Frame):
             self.text_box
             self.label_menu
         """
-        menubar = tk.Menu(self)
-        menubar.add_command(label="Open", command=self.open_file)
-        menubar.add_command(label="Save")
+        menubar = tk.Menu()
+        file_menu = tk.Menu(menubar)
+        file_menu.add_command(label="Open", command=self.open_file)
+        file_menu.add_command(label="Save")
+        menubar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menubar)
 
         main_frame = ttk.Frame(self)
@@ -80,7 +82,7 @@ class Application(ttk.Frame):
 
         text_box = MarkupText(main_frame, wrap="word")
         # text_box.set_text(self.__text) ########################################
-        text_box.bind("<ButtonRelease>", self.mouse_handler_text)
+        text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
 
         text_box.pack(side="left")
 
@@ -95,14 +97,14 @@ class Application(ttk.Frame):
         separator.pack(side="left", after=text_box_scroller, before=panel, fill="y")
 
         entity_panel = ttk.Frame(panel)
-        entity_panel.bind("<ButtonRelease>", self.mouse_handler_panel)
+        entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
         entity_panel.pack(side="left", fill="y")
 
         separator = ttk.Separator(panel, orient="vertical")
         separator.pack(side="left", after=entity_panel, fill="y")
 
         multi_entity_panel = ttk.Frame(panel)
-        multi_entity_panel.bind("<ButtonRelease>", self.mouse_handler_panel)
+        multi_entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
         multi_entity_panel.pack(side="right", fill="y")
 
         entity_panel_label = ttk.Label(entity_panel, text="Entities")
@@ -238,7 +240,7 @@ class Application(ttk.Frame):
                 self.label_menu.entryconfigure("Unset parent", state="disabled")
 
             w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
-            self.label_menu.tk_popup(event.x_root + w // 2, event.y_root + h // 2, 0)
+            self.label_menu.tk_popup(event.x_root + w // 2 * int(NOT_MAC), event.y_root + h // 2 * int(NOT_MAC), 0)
         finally:
             self.label_menu.grab_release()
 
@@ -273,8 +275,8 @@ class Application(ttk.Frame):
             label.pack(side="top")
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
-            label.bind("<ButtonRelease>", partial(self.mouse_handler_label, entity_idx=entity_idx))
-            label.bind("<Button-3>", partial(self.popup_menu, entity_idx=entity_idx))
+            label.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", partial(self.mouse_handler_label, entity_idx=entity_idx))
+            label.bind(f"<Button-{RIGHT_MOUSECLICK}>", partial(self.popup_menu, entity_idx=entity_idx))
             self.entity2label[entity_idx] = label
 
         # Because tkinter doesn't support several layers of tags, manually

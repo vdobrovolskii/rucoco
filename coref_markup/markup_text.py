@@ -3,6 +3,10 @@ from typing import *
 
 
 class MarkupText(tk.Text):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.configure(state="disabled")
+
     def clear_selection(self):
         self.tag_remove("sel", "1.0", tk.END)
 
