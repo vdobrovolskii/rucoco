@@ -12,6 +12,11 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
+# BUG: underline disappeared on hover
+# BUG: colors can overflow
+# BUG: mergins spans can break parent/child relations
+# BUG: after setting a span as child, it darkens: keep tag color in self.text_box?
+# TODO: if x>y>z, then highlight z when hovering x
 # TODO: scroll entities
 # TODO: open files
 # TODO: save files
@@ -124,6 +129,7 @@ class Application(ttk.Frame):
         label_menu.add_command(label="Merge", command=self.merge)
         label_menu.add_command(label="Set as parent", command=self.set_parent)
         label_menu.add_command(label="Unset parent", command=self.unset_parent)
+        label_menu.add_command(label="Delete", command=self.delete_entity)
 
         # Registering attributes
         self.entity_panel = entity_panel
@@ -131,6 +137,13 @@ class Application(ttk.Frame):
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
+
+    def delete_entity(self) -> str:
+        self.markup.delete_entity(self.popup_menu_entity)
+        if self.selected_entity == self.popup_menu_entity:
+            self.selected_entity = None
+        self.color_stack.append(self.entity2color.pop(self.popup_menu_entity))
+        self.render_entities()
 
     def get_entity_color(self, entity_idx: int) -> str:
         if entity_idx not in self.entity2color:
@@ -152,26 +165,25 @@ class Application(ttk.Frame):
         self.render_entities()
 
     def mouse_handler_label(self, event: tk.Event, entity_idx: int):
-        if event.num == LEFT_MOUSECLICK:
-            if self.text_box.selection_exists():
-                self.add_span_to_entity(self.text_box.get_selection_indices(), entity_idx)
-                self.text_box.clear_selection()
-            elif self.selected_entity == entity_idx:
+        if self.text_box.selection_exists():
+            self.add_span_to_entity(self.text_box.get_selection_indices(), entity_idx)
+            self.text_box.clear_selection()
+        elif self.selected_entity == entity_idx:
+            self.entity2label[self.selected_entity].unselect()
+            self.selected_entity = None
+        else:
+            if self.selected_entity is not None:
                 self.entity2label[self.selected_entity].unselect()
-                self.selected_entity = None
-            else:
-                if self.selected_entity is not None:
-                    self.entity2label[self.selected_entity].unselect()
-                self.selected_entity = entity_idx
-                self.entity2label[self.selected_entity].select()
+            self.selected_entity = entity_idx
+            self.entity2label[self.selected_entity].select()
 
     def mouse_handler_panel(self, event: tk.Event):
-        if event.num == LEFT_MOUSECLICK and self.selected_entity is not None:
+        if self.selected_entity is not None:
             self.entity2label[self.selected_entity].unselect()
             self.selected_entity = None
 
     def mouse_handler_text(self, event: tk.Event):
-        if event.num == LEFT_MOUSECLICK and self.selected_entity is not None and self.text_box.selection_exists():
+        if self.selected_entity is not None and self.text_box.selection_exists():
             self.add_span_to_entity(self.text_box.get_selection_indices(), self.selected_entity)
             self.text_box.clear_selection()
 
@@ -179,12 +191,12 @@ class Application(ttk.Frame):
         if event.type is tk.EventType.Enter:
             for span in self.markup.get_spans(entity_idx):
                 color = self.text_box.tag_cget(f"e{span}", "background")
-                self.text_box.tag_configure(f"e{span}", background=utils.multiply_color(color, 1.2))
+                self.text_box.tag_configure(f"e{span}", background=utils.multiply_color(color, 1.2), underline=underline)
             self.entity2label[entity_idx].enter()
         else:
             for span in self.markup.get_spans(entity_idx):
                 color = self.text_box.tag_cget(f"e{span}", "background")
-                self.text_box.tag_configure(f"e{span}", background=utils.divide_color(color, 1.2))
+                self.text_box.tag_configure(f"e{span}", background=utils.divide_color(color, 1.2), underline=False)
             self.entity2label[entity_idx].leave()
 
         if recursive:
@@ -214,29 +226,52 @@ class Application(ttk.Frame):
             self.render_entities()
 
     def popup_menu(self, event: tk.Event, entity_idx: int):
-        if self.selected_entity is None or self.selected_entity == entity_idx:
-            return
-        try:
-            self.popup_menu_entity = entity_idx
+        states = {
+            "Merge": "disabled",
+            "Set as parent": "disabled",
+            "Unset parent": "disabled",
+            "Delete": "active"
+        }
+        self.popup_menu_entity = entity_idx
 
-            # Only allowing merges of the same type (single + single or multi + multi)
+        if self.selected_entity is not None and self.selected_entity != self.popup_menu_entity:
+
             if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
-                self.label_menu.entryconfigure("Merge", state="active")
-            else:
-                self.label_menu.entryconfigure("Merge", state="disabled")
-
-            # Only MultiEntity can be set as parent
+                states["Merge"] = "active"
+            
             if self.markup.is_multi_entity(self.popup_menu_entity):
                 if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
-                    self.label_menu.entryconfigure("Set as parent", state="disabled")
-                    self.label_menu.entryconfigure("Unset parent", state="active")
+                    states["Unset parent"] = "active"
                 else:
-                    self.label_menu.entryconfigure("Set as parent", state="active")
-                    self.label_menu.entryconfigure("Unset parent", state="disabled")
-            else:
-                self.label_menu.entryconfigure("Set as parent", state="disabled")
-                self.label_menu.entryconfigure("Unset parent", state="disabled")
+                    states["Set as parent"] = "active"
 
+        for key, value in states.items():
+            self.label_menu.entryconfigure(key, state=value)
+
+        # if self.selected_entity is None or self.selected_entity == entity_idx:
+        #     return
+        # try:
+        #     self.popup_menu_entity = entity_idx
+
+        #     # Only allowing merges of the same type (single + single or multi + multi)
+        #     if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
+        #         self.label_menu.entryconfigure("Merge", state="active")
+        #     else:
+        #         self.label_menu.entryconfigure("Merge", state="disabled")
+
+        #     # Only MultiEntity can be set as parent
+        #     if self.markup.is_multi_entity(self.popup_menu_entity):
+        #         if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
+        #             self.label_menu.entryconfigure("Set as parent", state="disabled")
+        #             self.label_menu.entryconfigure("Unset parent", state="active")
+        #         else:
+        #             self.label_menu.entryconfigure("Set as parent", state="active")
+        #             self.label_menu.entryconfigure("Unset parent", state="disabled")
+        #     else:
+        #         self.label_menu.entryconfigure("Set as parent", state="disabled")
+        #         self.label_menu.entryconfigure("Unset parent", state="disabled")
+
+        try:
             w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
             self.label_menu.tk_popup(event.x_root + w // 2 * int(NOT_MAC), event.y_root + h // 2 * int(NOT_MAC), 0)
         finally:

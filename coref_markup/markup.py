@@ -57,6 +57,19 @@ class Markup:
         entity.spans.add(span)
         self._span2entity[span] = entity
 
+    def delete_entity(self, entity_idx: int):
+        entity = self._entities[entity_idx]
+        self._entities[entity_idx] = None
+        for span in entity.spans:
+            del self._span2entity[span]
+        while entity.part_of:
+            parent = entity.part_of.pop()
+            parent.entities.remove(entity)
+        if isinstance(entity, MultiEntity):
+            while entity.entities:
+                child = entity.entities.pop()
+                child.part_of.remove(entity)
+
     def delete_span(self, span: Span):
         if span not in self._span2entity:
             raise RuntimeError(f"error: span does not exist")
