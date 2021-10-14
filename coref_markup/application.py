@@ -14,7 +14,6 @@ from coref_markup import utils
 
 # BUG:
 # BUG: underline disappeared on hover
-# BUG: colors can overflow
 # BUG: mergins spans can break parent/child relations
 # TODO: if x>y>z, then highlight z when hovering x
 # TODO: scroll entities
