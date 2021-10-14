@@ -15,7 +15,6 @@ from coref_markup import utils
 # BUG: underline disappeared on hover
 # BUG: colors can overflow
 # BUG: mergins spans can break parent/child relations
-# BUG: after setting a span as child, it darkens: keep tag color in self.text_box?
 # TODO: if x>y>z, then highlight z when hovering x
 # TODO: scroll entities
 # TODO: open files
@@ -51,6 +50,8 @@ class Application(ttk.Frame):
 
         self.render_entities()
 
+        self.open_file("test.txt")
+
     def add_span_to_entity(self, span: Span, entity_idx: int):
         try:
             self.markup.add_span_to_entity(span, entity_idx)
@@ -74,7 +75,7 @@ class Application(ttk.Frame):
         """
         menubar = tk.Menu()
         file_menu = tk.Menu(menubar)
-        file_menu.add_command(label="Open", command=self.open_file)
+        file_menu.add_command(label="Open", command=self.open_file_handler)
         file_menu.add_command(label="Save")
         menubar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menubar)
@@ -150,14 +151,6 @@ class Application(ttk.Frame):
             self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
         return self.entity2color[entity_idx]
 
-    def get_highlighting_bitmap(self, span: Span) -> str:
-        bitmaps = ["gray50", "gray25", "gray12"]
-        overlapping_level = self.self_in_self_spans.get(span, 0)
-        if overlapping_level > 2:
-            self.set_status(f"warning: '{self.text_box.get(*span)}' has overlapping level of {overlapping_level}")
-            overlapping_level = 2
-        return bitmaps[overlapping_level]
-
     def merge(self):
         removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
         if removed_entity is not None:
@@ -190,13 +183,11 @@ class Application(ttk.Frame):
     def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True, recursive: bool = True):
         if event.type is tk.EventType.Enter:
             for span in self.markup.get_spans(entity_idx):
-                color = self.text_box.tag_cget(f"e{span}", "background")
-                self.text_box.tag_configure(f"e{span}", background=utils.multiply_color(color, 1.2), underline=underline)
+                self.text_box.add_extra_highlight(span, underline=underline)
             self.entity2label[entity_idx].enter()
         else:
             for span in self.markup.get_spans(entity_idx):
-                color = self.text_box.tag_cget(f"e{span}", "background")
-                self.text_box.tag_configure(f"e{span}", background=utils.divide_color(color, 1.2), underline=False)
+                self.text_box.remove_extra_highlight(span)
             self.entity2label[entity_idx].leave()
 
         if recursive:
@@ -216,9 +207,11 @@ class Application(ttk.Frame):
         except RuntimeError as e:
             self.set_status(e.args[0])
 
-    def open_file(self):
+    def open_file_handler(self):
         # TODO: first close the current file to avoid losing any data
-        path = filedialog.askopenfilename()
+        self.open_file(filedialog.askopenfilename())
+
+    def open_file(self, path: str):
         if path:
             self.markup = Markup()
             with open(path, encoding="utf8") as f:
@@ -238,7 +231,7 @@ class Application(ttk.Frame):
 
             if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
                 states["Merge"] = "active"
-            
+
             if self.markup.is_multi_entity(self.popup_menu_entity):
                 if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
                     states["Unset parent"] = "active"
@@ -282,23 +275,13 @@ class Application(ttk.Frame):
             if isinstance(child, MarkupLabel):
                 child.destroy()
         self.text_box.clear_tags()
-        self.self_in_self_spans = {}
-        tag2entity = {}
 
-        all_spans: List[Tuple[Span, int]] = []
         for entity_idx in self.markup.get_entities():
             color = self.get_entity_color(entity_idx)
+            for span in self.markup.get_spans(entity_idx):
+                self.text_box.add_highlight(span, entity_idx, color)
+            label_text = self.text_box.get_entity_label(entity_idx)
 
-            # Highlight spans in the text
-            spans = sorted(self.markup.get_spans(entity_idx))
-            for span in spans:
-                tag2entity[f"e{span}"] = entity_idx
-                all_spans.append((span, entity_idx))
-                self.text_box.tag_add(f"e{span}", *span)
-                self.text_box.tag_configure(f"e{span}", background=color)
-
-            # Add labels to the right panel
-            label_text = self.text_box.get(*spans[0])[:32]
             if isinstance(self.markup._entities[entity_idx], MultiEntity):
                 placement = self.multi_entity_panel
             else:
@@ -311,19 +294,7 @@ class Application(ttk.Frame):
             label.bind(f"<Button-{RIGHT_MOUSECLICK}>", partial(self.popup_menu, entity_idx=entity_idx))
             self.entity2label[entity_idx] = label
 
-        # Because tkinter doesn't support several layers of tags, manually
-        # set the color again for overlapping regions
-        all_spans.sort(key=lambda x: self.span_length(x[0]), reverse=True)  # longest spans first
-        for span, entity_idx in all_spans:
-            tags = [tag for tag in self.text_box.tag_names(span[0]) if tag.startswith("e")]
-            if len(tags) > 1:
-                self_in_self = sum(1 for tag in tags if tag2entity[tag] == entity_idx) - 1
-                if self_in_self:
-                    self.self_in_self_spans[span] = self_in_self
-                self.text_box.tag_raise(f"e{span}")
-                self.text_box.tag_configure(f"e{span}",
-                                            background=utils.multiply_color(self.get_entity_color(entity_idx),
-                                                                            1 - 0.15 * self_in_self))
+        self.text_box.fix_overlapping_highlights()
 
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
@@ -335,8 +306,7 @@ class Application(ttk.Frame):
         self.status_bar.configure(text=message)
         self.after(duration, lambda: self.status_bar.configure(text=""))
 
-    def span_length(self, span: Span) -> int:
-        return self.text_box.count(*span, "chars")
+
 
     def unset_parent(self):
         self.markup.remove_entity_from_mentity(self.selected_entity, self.popup_menu_entity)
