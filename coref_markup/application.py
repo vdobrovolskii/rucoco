@@ -12,9 +12,7 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
-# BUG:
 # BUG: underline disappeared on hover
-# BUG: mergins spans can break parent/child relations
 # TODO: if x>y>z, then highlight z when hovering x
 # TODO: scroll entities
 # TODO: open files

@@ -22,6 +22,12 @@ class Entity:
         self.spans.update(another.spans)
         another.spans = set()
 
+        while another.part_of:
+            entity = another.part_of.pop()
+            entity.entities.remove(another)
+            self.part_of.add(entity)
+            entity.entities.add(self)
+
 
 class MultiEntity(Entity):
     def __init__(self, idx: int):
