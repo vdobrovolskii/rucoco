@@ -39,23 +39,14 @@ class Application(ttk.Frame):
         self.selected_entity: Optional[int] = None
         self.popup_menu_entity: Optional[int] = None
 
-        self.self_in_self_spans: Dict[Span, int] = {}  # span -> overlapping level
-
-        self.highlights: Set[str] = set()
-
         self.build_colors()
         self.build_widgets()
 
         self.render_entities()
 
-        self.open_file("test.txt")
+        self.open_file("test.txt") ############################################
 
-    def add_span_to_entity(self, span: Span, entity_idx: int):
-        try:
-            self.markup.add_span_to_entity(span, entity_idx)
-            self.render_entities()
-        except RuntimeError as e:
-            self.set_status(e.args[0])
+    # Initializers #####################################################################################################
 
     def build_colors(self):
         self.all_colors = cycle(utils.get_colors())
@@ -85,7 +76,6 @@ class Application(ttk.Frame):
         status_bar.pack(side="bottom", fill="x")
 
         text_box = MarkupText(main_frame, wrap="word")
-        # text_box.set_text(self.__text) ########################################
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
 
         text_box.pack(side="left")
@@ -137,23 +127,7 @@ class Application(ttk.Frame):
         self.text_box = text_box
         self.label_menu = label_menu
 
-    def delete_entity(self) -> str:
-        self.markup.delete_entity(self.popup_menu_entity)
-        if self.selected_entity == self.popup_menu_entity:
-            self.selected_entity = None
-        self.color_stack.append(self.entity2color.pop(self.popup_menu_entity))
-        self.render_entities()
-
-    def get_entity_color(self, entity_idx: int) -> str:
-        if entity_idx not in self.entity2color:
-            self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
-        return self.entity2color[entity_idx]
-
-    def merge(self):
-        removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
-        if removed_entity is not None:
-            self.color_stack.append(self.entity2color.pop(removed_entity))
-        self.render_entities()
+    # Event handlers ###################################################################################################
 
     def mouse_handler_label(self, event: tk.Event, entity_idx: int):
         if self.text_box.selection_exists():
@@ -195,6 +169,32 @@ class Application(ttk.Frame):
             for outer_entity_idx in self.markup.get_outer_entities(entity_idx):
                 self.mouse_hover_handler(event, outer_entity_idx, underline=False, recursive=False)
 
+    def open_file_handler(self):
+        # TODO: first close the current file to avoid losing any data
+        self.open_file(filedialog.askopenfilename())
+
+    # Logic handlers ###################################################################################################
+
+    def add_span_to_entity(self, span: Span, entity_idx: int):
+        try:
+            self.markup.add_span_to_entity(span, entity_idx)
+            self.render_entities()
+        except RuntimeError as e:
+            self.set_status(e.args[0])
+
+    def delete_entity(self) -> str:
+        self.markup.delete_entity(self.popup_menu_entity)
+        if self.selected_entity == self.popup_menu_entity:
+            self.selected_entity = None
+        self.color_stack.append(self.entity2color.pop(self.popup_menu_entity))
+        self.render_entities()
+
+    def merge(self):
+        removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
+        if removed_entity is not None:
+            self.color_stack.append(self.entity2color.pop(removed_entity))
+        self.render_entities()
+
     def new_entity(self, multi: bool = False):
         try:
             start, end = self.text_box.get_selection_indices()
@@ -204,16 +204,25 @@ class Application(ttk.Frame):
         except RuntimeError as e:
             self.set_status(e.args[0])
 
-    def open_file_handler(self):
-        # TODO: first close the current file to avoid losing any data
-        self.open_file(filedialog.askopenfilename())
-
     def open_file(self, path: str):
         if path:
             self.markup = Markup()
             with open(path, encoding="utf8") as f:
                 self.text_box.set_text(f.read())
             self.render_entities()
+
+    def set_parent(self):
+        self.markup.add_entity_to_mentity(self.selected_entity, self.popup_menu_entity)
+
+    def unset_parent(self):
+        self.markup.remove_entity_from_mentity(self.selected_entity, self.popup_menu_entity)
+
+    # Renderers ########################################################################################################
+
+    def get_entity_color(self, entity_idx: int) -> str:
+        if entity_idx not in self.entity2color:
+            self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
+        return self.entity2color[entity_idx]
 
     def popup_menu(self, event: tk.Event, entity_idx: int):
         states = {
@@ -274,14 +283,6 @@ class Application(ttk.Frame):
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
 
-    def set_parent(self):
-        self.markup.add_entity_to_mentity(self.selected_entity, self.popup_menu_entity)
-
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
         self.after(duration, lambda: self.status_bar.configure(text=""))
-
-
-
-    def unset_parent(self):
-        self.markup.remove_entity_from_mentity(self.selected_entity, self.popup_menu_entity)
