@@ -13,7 +13,6 @@ from coref_markup import utils
 
 
 # BUG: underline disappeared on hover
-# TODO: if x>y>z, then highlight z when hovering x
 # TODO: scroll entities
 # TODO: open files
 # TODO: save files
@@ -190,9 +189,8 @@ class Application(ttk.Frame):
             self.entity2label[entity_idx].leave()
 
         if recursive:
-            if self.markup.is_multi_entity(entity_idx):
-                for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
-                    self.mouse_hover_handler(event, inner_entity_idx, underline=False, recursive=False)
+            for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
+                self.mouse_hover_handler(event, inner_entity_idx, underline=False, recursive=False)
 
             for outer_entity_idx in self.markup.get_outer_entities(entity_idx):
                 self.mouse_hover_handler(event, outer_entity_idx, underline=False, recursive=False)

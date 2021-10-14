@@ -89,10 +89,21 @@ class Markup:
         return (idx for idx, entity in enumerate(self._entities) if entity is not None)
 
     def get_inner_entities(self, entity_idx: int) -> Iterable[int]:
-        return (entity.idx for entity in self._entities[entity_idx].entities)
+        entity = self._entities[entity_idx]
+        if not isinstance(entity, MultiEntity):
+            return ()
+        entities = set()
+        for inner_entity in entity.entities:
+            entities.add(inner_entity.idx)
+            entities.update(self.get_inner_entities(inner_entity.idx))
+        return entities
 
     def get_outer_entities(self, entity_idx: int) -> Iterable[int]:
-        return (entity.idx for entity in self._entities[entity_idx].part_of)
+        entities = set()
+        for entity in self._entities[entity_idx].part_of:
+            entities.add(entity.idx)
+            entities.update(self.get_outer_entities(entity.idx))
+        return entities
 
     def get_spans(self, entity_idx: int) -> Iterable[Span]:
         return iter(self._entities[entity_idx].spans)
