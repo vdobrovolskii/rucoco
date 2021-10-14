@@ -12,6 +12,7 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
+# BUG:
 # BUG: underline disappeared on hover
 # BUG: colors can overflow
 # BUG: mergins spans can break parent/child relations
@@ -27,6 +28,7 @@ from coref_markup import utils
 # TODO: remove magic values
 # TODO: docstrings
 # TODO: mypy and pylint
+# TODO: click in text to bring out names of spans in this area
 
 
 class Application(ttk.Frame):
@@ -241,31 +243,9 @@ class Application(ttk.Frame):
         for key, value in states.items():
             self.label_menu.entryconfigure(key, state=value)
 
-        # if self.selected_entity is None or self.selected_entity == entity_idx:
-        #     return
-        # try:
-        #     self.popup_menu_entity = entity_idx
-
-        #     # Only allowing merges of the same type (single + single or multi + multi)
-        #     if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
-        #         self.label_menu.entryconfigure("Merge", state="active")
-        #     else:
-        #         self.label_menu.entryconfigure("Merge", state="disabled")
-
-        #     # Only MultiEntity can be set as parent
-        #     if self.markup.is_multi_entity(self.popup_menu_entity):
-        #         if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
-        #             self.label_menu.entryconfigure("Set as parent", state="disabled")
-        #             self.label_menu.entryconfigure("Unset parent", state="active")
-        #         else:
-        #             self.label_menu.entryconfigure("Set as parent", state="active")
-        #             self.label_menu.entryconfigure("Unset parent", state="disabled")
-        #     else:
-        #         self.label_menu.entryconfigure("Set as parent", state="disabled")
-        #         self.label_menu.entryconfigure("Unset parent", state="disabled")
-
         try:
             w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
+            h //= self.label_menu.index("end") + 1
             self.label_menu.tk_popup(event.x_root + w // 2 * int(NOT_MAC), event.y_root + h // 2 * int(NOT_MAC), 0)
         finally:
             self.label_menu.grab_release()
