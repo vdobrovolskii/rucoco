@@ -258,6 +258,8 @@ class Application(ttk.Frame):
         removed_entity = self.markup.delete_span(span)
         if removed_entity is not None:
             self.color_stack.append(self.entity2color.pop(removed_entity))
+            if self.selected_entity == removed_entity:
+                self.selected_entity = None
         self.render_entities()
 
     def merge(self):
