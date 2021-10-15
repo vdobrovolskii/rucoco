@@ -78,7 +78,11 @@ class MarkupText(tk.Text):
         if span in self.extra_highlights:
             tag = f"e{span}"
             color = self.extra_highlights[span]
-            self.tag_configure(tag, background=color, underline=False)
+
+            # tk uses "" as the absense of value
+            # if underline=False, then this will conflict with other tags underline=True
+            self.tag_configure(tag, background=color, underline="")
+
             del self.extra_highlights[span]
 
     def selection_exists(self) -> bool:
