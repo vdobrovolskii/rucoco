@@ -61,6 +61,7 @@ class Application(ttk.Frame):
             self.status_bar
             self.text_box
             self.label_menu
+            self.text_menu
         """
         menubar = tk.Menu()
         file_menu = tk.Menu(menubar)
@@ -77,8 +78,10 @@ class Application(ttk.Frame):
 
         text_box = MarkupText(main_frame, wrap="word")
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
-
+        text_box.bind(f"<Button-{RIGHT_MOUSECLICK}>", self.popup_text_menu)
         text_box.pack(side="left")
+
+        text_menu = tk.Menu(self, tearoff=0)
 
         panel = ttk.Frame(main_frame)
         panel.pack(side="right", fill="y")
@@ -126,6 +129,7 @@ class Application(ttk.Frame):
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
+        self.text_menu = text_menu
 
     # Event handlers ###################################################################################################
 
@@ -173,6 +177,58 @@ class Application(ttk.Frame):
         # TODO: first close the current file to avoid losing any data
         self.open_file(filedialog.askopenfilename())
 
+    def popup_label_menu(self, event: tk.Event, entity_idx: int):
+        states = {
+            "Merge": "disabled",
+            "Set as parent": "disabled",
+            "Unset parent": "disabled",
+            "Delete": "active"
+        }
+        self.popup_menu_entity = entity_idx
+
+        if self.selected_entity is not None and self.selected_entity != self.popup_menu_entity:
+
+            if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
+                states["Merge"] = "active"
+
+            if self.markup.is_multi_entity(self.popup_menu_entity):
+                if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
+                    states["Unset parent"] = "active"
+                else:
+                    states["Set as parent"] = "active"
+
+        for key, value in states.items():
+            self.label_menu.entryconfigure(key, state=value)
+
+        try:
+            self.render_menu(self.label_menu, event.x_root, event.y_root)
+        finally:
+            self.label_menu.grab_release()
+
+    def popup_text_menu(self, event: tk.Event):
+        index = self.text_box.index(f"@{event.x},{event.y}")
+        spans = list(self.text_box.get_spans_at_index(index))
+        if not self.text_box.selection_exists() and not spans:
+            return
+
+        self.text_menu.delete(0, "end")
+        if self.text_box.selection_exists():
+            span = self.text_box.get_selection_indices()
+            if not self.markup.span_exists(span):
+                span_text = self.text_box.get(*span)
+                self.text_menu.add_command(label=f"Add \"{span_text}\"",
+                                            command=partial(self.new_entity, span=span))
+        for span in spans:
+            span_text = self.text_box.get(*span)
+            self.text_menu.add_command(label=f"Delete \"{span_text}\"",
+                                       command=partial(self.delete_span, span=span))
+        self.text_menu.update()
+
+        try:
+            self.render_menu(self.text_menu, event.x_root, event.y_root)
+        finally:
+            self.text_menu.grab_release()
+
     # Logic handlers ###################################################################################################
 
     def add_span_to_entity(self, span: Span, entity_idx: int):
@@ -189,17 +245,24 @@ class Application(ttk.Frame):
         self.color_stack.append(self.entity2color.pop(self.popup_menu_entity))
         self.render_entities()
 
+    def delete_span(self, span: Span):
+        removed_entity = self.markup.delete_span(span)
+        if removed_entity is not None:
+            self.color_stack.append(self.entity2color.pop(removed_entity))
+        self.render_entities()
+
     def merge(self):
         removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
         if removed_entity is not None:
             self.color_stack.append(self.entity2color.pop(removed_entity))
         self.render_entities()
 
-    def new_entity(self, multi: bool = False):
+    def new_entity(self, multi: bool = False, span: Optional[Span] = None):
         try:
-            start, end = self.text_box.get_selection_indices()
+            if span is None:
+                span = self.text_box.get_selection_indices()
             self.text_box.clear_selection()
-            self.markup.new_entity((start, end), multi=multi)
+            self.markup.new_entity(span, multi=multi)
             self.render_entities()
         except RuntimeError as e:
             self.set_status(e.args[0])
@@ -224,36 +287,6 @@ class Application(ttk.Frame):
             self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
         return self.entity2color[entity_idx]
 
-    def popup_menu(self, event: tk.Event, entity_idx: int):
-        states = {
-            "Merge": "disabled",
-            "Set as parent": "disabled",
-            "Unset parent": "disabled",
-            "Delete": "active"
-        }
-        self.popup_menu_entity = entity_idx
-
-        if self.selected_entity is not None and self.selected_entity != self.popup_menu_entity:
-
-            if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
-                states["Merge"] = "active"
-
-            if self.markup.is_multi_entity(self.popup_menu_entity):
-                if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
-                    states["Unset parent"] = "active"
-                else:
-                    states["Set as parent"] = "active"
-
-        for key, value in states.items():
-            self.label_menu.entryconfigure(key, state=value)
-
-        try:
-            w, h = self.label_menu.winfo_reqwidth(), self.label_menu.winfo_reqheight()
-            h //= self.label_menu.index("end") + 1
-            self.label_menu.tk_popup(event.x_root + w // 2 * int(NOT_MAC), event.y_root + h // 2 * int(NOT_MAC), 0)
-        finally:
-            self.label_menu.grab_release()
-
     def render_entities(self):
         for child in chain(self.entity_panel.winfo_children(), self.multi_entity_panel.winfo_children()):
             if isinstance(child, MarkupLabel):
@@ -275,13 +308,18 @@ class Application(ttk.Frame):
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", partial(self.mouse_handler_label, entity_idx=entity_idx))
-            label.bind(f"<Button-{RIGHT_MOUSECLICK}>", partial(self.popup_menu, entity_idx=entity_idx))
+            label.bind(f"<Button-{RIGHT_MOUSECLICK}>", partial(self.popup_label_menu, entity_idx=entity_idx))
             self.entity2label[entity_idx] = label
 
         self.text_box.fix_overlapping_highlights()
 
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
+
+    def render_menu(self, menu: tk.Menu, x: int, y: int):
+        w, h = menu.winfo_reqwidth(), menu.winfo_reqheight()
+        h //= menu.index("end") + 1
+        menu.tk_popup(x + w // 2 * int(NOT_MAC), y + h // 2 * int(NOT_MAC), 0)
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)

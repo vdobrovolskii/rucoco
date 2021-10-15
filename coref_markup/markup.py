@@ -43,6 +43,7 @@ class MultiEntity(Entity):
             entity.part_of.add(self)
             self.entities.add(entity)
 
+
 class Markup:
     def __init__(self):
         self._span2entity: Dict[Span, Entity] = {}
@@ -76,14 +77,16 @@ class Markup:
                 child = entity.entities.pop()
                 child.part_of.remove(entity)
 
-    def delete_span(self, span: Span):
+    def delete_span(self, span: Span) -> Optional[int]:
+        """ Returns the index of deleted entity if span was the last span in it. """
         if span not in self._span2entity:
             raise RuntimeError(f"error: span does not exist")
         entity = self._span2entity[span]
         entity.spans.remove(span)
+        del self._span2entity[span]
         if not entity.spans:
             self._entities[entity.idx] = None
-        del self._span2entity[span]
+            return entity.idx
 
     def get_entities(self) -> Iterable[int]:
         return (idx for idx, entity in enumerate(self._entities) if entity is not None)
@@ -143,3 +146,6 @@ class Markup:
         assert isinstance(mentity, MultiEntity)
         mentity.entities.remove(entity)
         entity.part_of.remove(mentity)
+
+    def span_exists(self, span: Span) -> bool:
+        return span in self._span2entity

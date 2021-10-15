@@ -56,6 +56,11 @@ class MarkupText(tk.Text):
         except tk.TclError:
             raise RuntimeError("error: no text selected")
 
+    def get_spans_at_index(self, index: str) -> Iterable[Span]:
+        for tag in self.tag_names(index):
+            if tag.startswith("e"):
+                yield self.index(f"{tag}.first"), self.index(f"{tag}.last")
+
     def fix_overlapping_highlights(self):
         # Longer spans first
         all_spans = sorted(((span, entity_idx) for entity_idx, spans in self.entity2spans.items() for span in spans),
