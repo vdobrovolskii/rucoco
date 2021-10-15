@@ -13,15 +13,11 @@ from coref_markup import utils
 
 
 # TODO: scroll entities
-# TODO: open files
-# TODO: save files
 # TODO: config (annotator name, what else?)
 # TODO: span and entity texts in error messages (custom Exception class to pass data)
-# TODO: reorganize code
 # TODO: remove magic values
 # TODO: docstrings
 # TODO: mypy and pylint
-# TODO: click in text to bring out names of spans in this area
 
 
 class Application(ttk.Frame):
@@ -34,10 +30,6 @@ class Application(ttk.Frame):
 
         self.reset_state()
         self.build_widgets()
-
-        self.render_entities()
-
-        self.open_file("test.txt") ############################################
 
     # Initializers #####################################################################################################
 
@@ -291,6 +283,7 @@ class Application(ttk.Frame):
                     text = f.read()
                 self.text_box.set_text(text)
                 self.markup = Markup()
+                self.reset_state()
                 self.render_entities()
             except UnicodeDecodeError:
                 self.set_status(f"error: couldn't read file at \"{path}\"")
@@ -301,6 +294,7 @@ class Application(ttk.Frame):
                     data = json.load(f)
                 self.text_box.set_text(data["text"])
                 self.read_markup(data)
+                self.reset_state()
                 self.render_entities()
             except:
                 self.text_box.set_text(old_text)
