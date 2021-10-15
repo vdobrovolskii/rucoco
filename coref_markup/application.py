@@ -2,8 +2,7 @@ from functools import partial
 from itertools import chain, cycle
 import json
 import tkinter as tk
-from tkinter import filedialog
-from tkinter import ttk
+from tkinter import filedialog, messagebox, ttk
 from typing import *
 
 from coref_markup.const import *
@@ -33,11 +32,7 @@ class Application(ttk.Frame):
 
         self.markup = Markup()
 
-        self.entity2label: Dict[int, MarkupLabel] = {}
-        self.selected_entity: Optional[int] = None
-        self.popup_menu_entity: Optional[int] = None
-
-        self.build_colors()
+        self.reset_state()
         self.build_widgets()
 
         self.render_entities()
@@ -45,11 +40,6 @@ class Application(ttk.Frame):
         self.open_file("test.txt") ############################################
 
     # Initializers #####################################################################################################
-
-    def build_colors(self):
-        self.all_colors = cycle(utils.get_colors())
-        self.entity2color: Dict[int, str] = {}
-        self.color_stack: List[str] = []
 
     def build_widgets(self):
         """
@@ -61,6 +51,8 @@ class Application(ttk.Frame):
             self.label_menu
             self.text_menu
         """
+        self.master.protocol("WM_DELETE_WINDOW", self.close_program_handler)
+
         menubar = tk.Menu()
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Open", command=self.open_file_handler)
@@ -129,7 +121,21 @@ class Application(ttk.Frame):
         self.label_menu = label_menu
         self.text_menu = text_menu
 
+    def reset_state(self):
+        self.all_colors = cycle(utils.get_colors())
+        self.entity2color: Dict[int, str] = {}
+        self.color_stack: List[str] = []
+
+        self.entity2label: Dict[int, MarkupLabel] = {}
+        self.selected_entity: Optional[int] = None
+        self.popup_menu_entity: Optional[int] = None
+
     # Event handlers ###################################################################################################
+
+    def close_program_handler(self):
+        if (not self.markup
+                or messagebox.askokcancel("Quit", "Are you sure you want to quit? All unsaved progress will be lost.")):
+            self.master.destroy()
 
     def mouse_handler_label(self, event: tk.Event, entity_idx: int):
         if self.text_box.selection_exists():
@@ -172,8 +178,13 @@ class Application(ttk.Frame):
                 self.mouse_hover_handler(event, outer_entity_idx, underline=False, recursive=False)
 
     def open_file_handler(self):
-        # TODO: first close the current file to avoid losing any data
-        self.open_file(filedialog.askopenfilename())
+        if self.markup and not messagebox.askokcancel("Open", "Are you sure? All unsaved progress will be lost."):
+            return
+        path = filedialog.askopenfilename(filetypes=[("All supported types", "*.txt *.json"),
+                                                     ("Plain text", "*.txt"),
+                                                     ("JSON Markup", "*.json")])
+        if path:
+            self.open_file(path)
 
     def popup_label_menu(self, event: tk.Event, entity_idx: int):
         states = {
@@ -274,11 +285,40 @@ class Application(ttk.Frame):
             self.set_status(e.args[0])
 
     def open_file(self, path: str):
-        if path:
-            self.markup = Markup()
-            with open(path, encoding="utf8") as f:
-                self.text_box.set_text(f.read())
-            self.render_entities()
+        if path.endswith(".txt"):
+            try:
+                with open(path, encoding="utf8") as f:
+                    text = f.read()
+                self.text_box.set_text(text)
+                self.markup = Markup()
+                self.render_entities()
+            except UnicodeDecodeError:
+                self.set_status(f"error: couldn't read file at \"{path}\"")
+        elif path.endswith(".json"):
+            try:
+                old_text = self.text_box.get("1.0", "end")
+                with open(path, encoding="utf8") as f:
+                    data = json.load(f)
+                self.text_box.set_text(data["text"])
+                self.read_markup(data)
+                self.render_entities()
+            except:
+                self.text_box.set_text(old_text)
+                self.set_status(f"error: couldn't read file at \"{path}\"")
+        else:
+            self.set_status(f"error: invalid file type at \"{path}\"")
+
+    def read_markup(self, data: dict) -> Markup:
+        markup = Markup()
+        is_multi = list(map(bool, data["includes"]))
+        for entity_idx, entity in enumerate(data["entities"]):
+            markup.new_entity(self.text_box.convert_char_to_tk(entity[0]), is_multi[entity_idx])
+            for span in entity[1:]:
+                markup.add_span_to_entity(self.text_box.convert_char_to_tk(span), entity_idx)
+        for entity_idx, inner_entities in enumerate(data["includes"]):
+            for inner_entity_idx in inner_entities:
+                markup.add_entity_to_mentity(inner_entity_idx, entity_idx)
+        self.markup = markup
 
     def set_parent(self):
         self.markup.add_entity_to_mentity(self.selected_entity, self.popup_menu_entity)

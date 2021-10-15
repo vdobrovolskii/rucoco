@@ -49,6 +49,9 @@ class Markup:
         self._span2entity: Dict[Span, Entity] = {}
         self._entities: List[Optional[Entity]] = []
 
+    def __bool__(self):
+        return bool(self._span2entity)
+
     def add_entity_to_mentity(self, e_idx: int, m_idx: int):
         entity = self._entities[e_idx]
         mentity = self._entities[m_idx]

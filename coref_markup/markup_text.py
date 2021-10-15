@@ -39,9 +39,9 @@ class MarkupText(tk.Text):
         self.tag2entity: Dict[str, int] = {}
         self.extra_highlights: Dict[Span, str] = {}  # span -> original color
 
-    # def convert_char_to_tk(self, span: Span) -> Tuple[str, str]:
-    #     """ Converts char offset notation to tkinter internal notation. """
-    #     return tuple(self.text_box.index(f"1.0+{i}c") for i in span)
+    def convert_char_to_tk(self, span: Tuple[int, int]) -> Span:
+        """ Converts char offset notation to tkinter internal notation. """
+        return tuple(self.index(f"1.0+{i}c") for i in span)
 
     def convert_tk_to_char(self, tk_span: Span) -> Tuple[int, int]:
         """ Converts tkinter internal notation to tuple of ints. """
