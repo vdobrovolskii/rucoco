@@ -91,14 +91,15 @@ class Markup:
     def get_entities(self) -> Iterable[int]:
         return (idx for idx, entity in enumerate(self._entities) if entity is not None)
 
-    def get_inner_entities(self, entity_idx: int) -> Iterable[int]:
+    def get_inner_entities(self, entity_idx: int, recursive: bool = True) -> Iterable[int]:
         entity = self._entities[entity_idx]
         if not isinstance(entity, MultiEntity):
             return ()
         entities = set()
         for inner_entity in entity.entities:
             entities.add(inner_entity.idx)
-            entities.update(self.get_inner_entities(inner_entity.idx))
+            if recursive:
+                entities.update(self.get_inner_entities(inner_entity.idx))
         return entities
 
     def get_outer_entities(self, entity_idx: int) -> Iterable[int]:

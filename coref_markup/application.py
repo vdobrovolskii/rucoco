@@ -1,5 +1,6 @@
 from functools import partial
 from itertools import chain, cycle
+import json
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import ttk
@@ -12,12 +13,9 @@ from coref_markup.markup_label import *
 from coref_markup import utils
 
 
-# BUG: underline disappeared on hover
 # TODO: scroll entities
 # TODO: open files
 # TODO: save files
-# TODO: delete entity (select and press delete; should there be a Button?)
-# TODO: delete spans (how?)
 # TODO: config (annotator name, what else?)
 # TODO: span and entity texts in error messages (custom Exception class to pass data)
 # TODO: reorganize code
@@ -64,9 +62,9 @@ class Application(ttk.Frame):
             self.text_menu
         """
         menubar = tk.Menu()
-        file_menu = tk.Menu(menubar)
+        file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Open", command=self.open_file_handler)
-        file_menu.add_command(label="Save")
+        file_menu.add_command(label="Save", command=self.save_file_handler)
         menubar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menubar)
 
@@ -229,6 +227,14 @@ class Application(ttk.Frame):
         finally:
             self.text_menu.grab_release()
 
+    def save_file_handler(self):
+        path = filedialog.asksaveasfilename(confirmoverwrite=True,
+                                            defaultextension=".json",
+                                            filetypes=[("JSON Markup", "*.json")])
+        if path:
+            with open(path, mode="w", encoding="utf8") as f:
+                json.dump(self.export(), f, ensure_ascii=False)
+
     # Logic handlers ###################################################################################################
 
     def add_span_to_entity(self, span: Span, entity_idx: int):
@@ -324,3 +330,31 @@ class Application(ttk.Frame):
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
         self.after(duration, lambda: self.status_bar.configure(text=""))
+
+    # Export ###########################################################################################################
+
+    def export(self) -> dict:
+        old_entities = []
+        for entity_idx in self.markup.get_entities():
+            spans = sorted(self.text_box.convert_tk_to_char(span) for span in self.markup.get_spans(entity_idx))
+            old_entities.append((spans, entity_idx))
+        old_entities.sort()
+
+        index_mapping = {}
+        entities = []
+        for spans, old_entity_idx in old_entities:
+            index_mapping[old_entity_idx] = len(entities)
+            entities.append(spans)
+
+        includes = [None for _ in entities]
+        for old_entity_idx, new_entity_idx in index_mapping.items():
+            inner_entities = sorted(index_mapping[i]
+                                    for i in self.markup.get_inner_entities(old_entity_idx, recursive=False))
+            includes[new_entity_idx] = inner_entities
+        assert all(elem is not None for elem in includes)
+
+        return {
+            "entities": entities,
+            "includes": includes,
+            "text": self.text_box.get("1.0", "end")
+        }

@@ -43,9 +43,15 @@ class MarkupText(tk.Text):
     #     """ Converts char offset notation to tkinter internal notation. """
     #     return tuple(self.text_box.index(f"1.0+{i}c") for i in span)
 
-    # def convert_tk_to_char(self, tk_span: Tuple[str, str]) -> Span:
-    #     """ Converts tkinter internal notation to tuple of ints. """
-    #     return tuple(self.text_box.count("1.0", i, "chars")[0] for i in tk_span)
+    def convert_tk_to_char(self, tk_span: Span) -> Tuple[int, int]:
+        """ Converts tkinter internal notation to tuple of ints. """
+        return tuple(self.convert_to_int_index(i) for i in tk_span)
+
+    def convert_to_int_index(self, index: str) -> int:
+        """ Converts tkinter string index to int """
+        if index == "1.0":
+            return 0
+        return self.count("1.0", index, "chars")[0]
 
     def get_entity_label(self, entity_idx: int) -> str:
         return self.get(*self.entity2spans[entity_idx][0])[:32]
