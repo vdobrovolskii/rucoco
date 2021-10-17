@@ -20,7 +20,7 @@ class MarkupText(tk.Text):
         self.tag_configure(tag, background=color)
 
         self.tag2entity[tag] = entity_idx
-        bisect.insort(self.entity2spans[entity_idx], span)
+        self.entity2spans[entity_idx].append(span)
 
     def add_extra_highlight(self, span: Span, underline: bool = True):
         if span not in self.extra_highlights:
@@ -54,7 +54,8 @@ class MarkupText(tk.Text):
         return self.count("1.0", index, "chars")[0]
 
     def get_entity_label(self, entity_idx: int) -> str:
-        return self.get(*self.entity2spans[entity_idx][0])[:32]
+        first_span = min(self.entity2spans[entity_idx], key=self.convert_tk_to_char)
+        return self.get(*first_span)[:32]
 
     def get_selection_indices(self) -> Span:
         try:
