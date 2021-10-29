@@ -46,13 +46,6 @@ class Application(ttk.Frame):
         self.master.protocol("WM_DELETE_WINDOW", self.close_program_handler)
         self.grid(row=0, column=0, sticky=(tk.N + tk.W + tk.E + tk.S))
 
-        menubar = tk.Menu()
-        file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Open", command=self.open_file_handler)
-        file_menu.add_command(label="Save", command=self.save_file_handler)
-        menubar.add_cascade(label="File", menu=file_menu)
-        self.master.configure(menu=menubar)
-
         status_bar = ttk.Label(self)
         status_bar.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W))
 
@@ -95,6 +88,22 @@ class Application(ttk.Frame):
         label_menu.add_command(label="Set as parent", command=self.set_parent)
         label_menu.add_command(label="Unset parent", command=self.unset_parent)
         label_menu.add_command(label="Delete", command=self.delete_entity)
+
+        # Menu
+        menubar = tk.Menu()
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="Open", command=self.open_file_handler)
+        file_menu.add_command(label="Save", command=self.save_file_handler)
+        menubar.add_cascade(label="File", menu=file_menu)
+        view_menu = tk.Menu(menubar, tearoff=0)
+        view_menu.add_command(label="Font +", command=text_box.font_increase)
+        view_menu.add_command(label="Font -", command=text_box.font_decrease)
+        menubar.add_cascade(label="View", menu=view_menu)
+        self.master.configure(menu=menubar)
+
+        # Shortcuts
+        self.master.bind("<Control-=>", lambda _: self.text_box.font_increase())
+        self.master.bind("<Control-minus>", lambda _: self.text_box.font_decrease())
 
         # Managing resizing
         self.master.rowconfigure(0, weight=1)

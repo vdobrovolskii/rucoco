@@ -1,4 +1,3 @@
-import bisect
 from collections import defaultdict
 import tkinter as tk
 from tkinter.scrolledtext import ScrolledText
@@ -8,9 +7,14 @@ from coref_markup import utils
 from coref_markup.markup import Span
 
 
+FONT_TYPE = "TkFixedFont"
+FONT_SIZE = 12
+
+
 class MarkupText(ScrolledText):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs, font=(FONT_TYPE, FONT_SIZE))
+        self.font_size = FONT_SIZE
         self.configure(state="disabled")
         self.tag_configure("sel", underline=True)
         self.clear_tags()
@@ -53,6 +57,15 @@ class MarkupText(ScrolledText):
         if index == "1.0":
             return 0
         return self.count("1.0", index, "chars")[0]
+
+    def font_decrease(self):
+        if self.font_size > 8:
+            self.font_size -= 1
+            self.configure(font=(FONT_TYPE, self.font_size))
+
+    def font_increase(self):
+        self.font_size += 1
+        self.configure(font=(FONT_TYPE, self.font_size))
 
     def get_entity_label(self, entity_idx: int) -> str:
         first_span = min(self.entity2spans[entity_idx], key=self.convert_tk_to_char)
