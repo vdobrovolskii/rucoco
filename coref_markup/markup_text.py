@@ -1,13 +1,14 @@
 import bisect
 from collections import defaultdict
 import tkinter as tk
+from tkinter.scrolledtext import ScrolledText
 from typing import *
 
 from coref_markup import utils
 from coref_markup.markup import Span
 
 
-class MarkupText(tk.Text):
+class MarkupText(ScrolledText):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.configure(state="disabled")

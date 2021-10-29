@@ -44,6 +44,7 @@ class Application(ttk.Frame):
             self.text_menu
         """
         self.master.protocol("WM_DELETE_WINDOW", self.close_program_handler)
+        self.grid(row=0, column=0, sticky=(tk.N + tk.W + tk.E + tk.S))
 
         menubar = tk.Menu()
         file_menu = tk.Menu(menubar, tearoff=0)
@@ -52,58 +53,57 @@ class Application(ttk.Frame):
         menubar.add_cascade(label="File", menu=file_menu)
         self.master.configure(menu=menubar)
 
-        main_frame = ttk.Frame(self)
-        main_frame.pack(side="top", fill="both")
-
         status_bar = ttk.Label(self)
-        status_bar.pack(side="bottom", fill="x")
+        status_bar.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W))
 
-        text_box = MarkupText(main_frame, wrap="word")
+        text_box = MarkupText(self, wrap="word")
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
         text_box.bind(f"<Button-{RIGHT_MOUSECLICK}>", self.popup_text_menu)
-        text_box.pack(side="left")
+        text_box.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         text_menu = tk.Menu(self, tearoff=0)
 
-        panel = ttk.Frame(main_frame)
-        panel.pack(side="right", fill="y")
-
-        text_box_scroller = ttk.Scrollbar(main_frame, command=text_box.yview)
-        text_box_scroller.pack(side="left", after=text_box, before=panel, fill="y")
-        text_box["yscrollcommand"] = text_box_scroller.set
-
-        separator = ttk.Separator(main_frame, orient="vertical")
-        separator.pack(side="left", after=text_box_scroller, before=panel, fill="y")
+        panel = ttk.Frame(self)
+        panel.grid(row=0, column=1, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         entity_panel = ttk.Frame(panel)
         entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        entity_panel.pack(side="left", fill="y")
+        entity_panel.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         separator = ttk.Separator(panel, orient="vertical")
-        separator.pack(side="left", after=entity_panel, fill="y")
+        separator.grid(row=0, column=1, sticky=(tk.N+tk.S))
 
         multi_entity_panel = ttk.Frame(panel)
         multi_entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        multi_entity_panel.pack(side="right", fill="y")
+        multi_entity_panel.grid(row=0, column=2, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         entity_panel_label = ttk.Label(entity_panel, text="Entities")
-        entity_panel_label.pack(side="top")
+        entity_panel_label.grid(row=0)
 
         mentity_panel_label = ttk.Label(multi_entity_panel, text="mEntities")
-        mentity_panel_label.pack(side="top")
+        mentity_panel_label.grid(row=0)
 
         new_entity_button = ttk.Button(entity_panel, text="New Entity", command=self.new_entity)
-        new_entity_button.pack(side="bottom")
+        new_entity_button.grid(row=1)
 
         new_mentity_button = ttk.Button(multi_entity_panel, text="New mEntity",
                                         command=partial(self.new_entity, multi=True))
-        new_mentity_button.pack(side="bottom")
+        new_mentity_button.grid(row=1)
 
         label_menu = tk.Menu(self, tearoff=0)
         label_menu.add_command(label="Merge", command=self.merge)
         label_menu.add_command(label="Set as parent", command=self.set_parent)
         label_menu.add_command(label="Unset parent", command=self.unset_parent)
         label_menu.add_command(label="Delete", command=self.delete_entity)
+
+        # Managing resizing
+        self.master.rowconfigure(0, weight=1)
+        self.master.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(0, weight=3)
+        self.columnconfigure(1, weight=1)
+        panel.columnconfigure(0, weight=1)
+        panel.columnconfigure(2, weight=1)
 
         # Registering attributes
         self.entity_panel = entity_panel
@@ -346,7 +346,7 @@ class Application(ttk.Frame):
             else:
                 placement = self.entity_panel
             label = MarkupLabel(placement, text=label_text, background=color, borderwidth=0, relief="solid")
-            label.pack(side="top")
+            label.grid(row=placement.grid_size()[1], sticky=tk.W)
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", partial(self.mouse_handler_label, entity_idx=entity_idx))
