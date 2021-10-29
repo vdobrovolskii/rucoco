@@ -392,5 +392,5 @@ class Application(ttk.Frame):
         return {
             "entities": entities,
             "includes": includes,
-            "text": self.text_box.get("1.0", "end")
+            "text": self.text_box.get("1.0", "end-1c")
         }
