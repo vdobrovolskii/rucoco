@@ -8,9 +8,19 @@ class Entity:
     def __init__(self, idx: int):
         self.idx = idx
         self.spans: Set[Span] = set()
-        
+
         self.children: Set[Entity] = set()
         self.parents: Set[Entity] = set()
+
+    def __new__(cls, idx: int):
+        """ Makes sure .idx is available for deepcopy module """
+        obj = super().__new__(cls)
+        obj.idx = idx
+        return obj
+
+    def __getnewargs__(self):
+        """ Makes sure .idx is available for deepcopy module """
+        return (self.idx, )
 
     def __hash__(self) -> int:
         return self.idx

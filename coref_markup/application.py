@@ -1,5 +1,7 @@
+from collections import deque
+from copy import deepcopy
 from functools import partial
-from itertools import chain, cycle
+from itertools import cycle
 import json
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -23,6 +25,7 @@ from coref_markup import utils
 
 class Application(ttk.Frame):
     LABEL_WIDTH = 32
+    UNDO_REDO_STACK_SIZE = 5
 
     def __init__(self, master: tk.Tk):
         super().__init__(master)
@@ -78,15 +81,21 @@ class Application(ttk.Frame):
         file_menu.add_command(label="Open", command=self.open_file_handler)
         file_menu.add_command(label="Save", command=self.save_file_handler)
         menubar.add_cascade(label="File", menu=file_menu)
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        edit_menu.add_command(label="Undo", command=self.undo, accelerator="Ctrl+z")
+        edit_menu.add_command(label="Redo", command=self.redo, accelerator="Ctrl+y")
+        menubar.add_cascade(label="Edit", menu=edit_menu)
         view_menu = tk.Menu(menubar, tearoff=0)
-        view_menu.add_command(label="Font +", command=text_box.font_increase)
-        view_menu.add_command(label="Font -", command=text_box.font_decrease)
+        view_menu.add_command(label="Font +", command=text_box.font_increase, accelerator="Ctrl++")
+        view_menu.add_command(label="Font -", command=text_box.font_decrease, accelerator="Ctrl+-")
         menubar.add_cascade(label="View", menu=view_menu)
         self.master.configure(menu=menubar)
 
         # Shortcuts
         self.master.bind("<Control-=>", lambda _: self.text_box.font_increase())
         self.master.bind("<Control-minus>", lambda _: self.text_box.font_decrease())
+        self.master.bind("<Control-z>", lambda _: self.undo())
+        self.master.bind("<Control-y>", lambda _: self.redo())
 
         # Managing resizing
         self.master.rowconfigure(0, weight=1)
@@ -109,6 +118,19 @@ class Application(ttk.Frame):
         self.entity2label: Dict[int, MarkupLabel] = {}
         self.selected_entity: Optional[int] = None
         self.popup_menu_entity: Optional[int] = None
+
+        self.undo_stack = deque([], self.UNDO_REDO_STACK_SIZE)
+        self.redo_stack = deque([], self.UNDO_REDO_STACK_SIZE)
+
+    @staticmethod
+    def undoable(func: Callable[..., Any]):
+        def wrapper(instance: "Application", *args, **kwargs):
+            markup = deepcopy(instance.markup)
+            result = func(instance, *args, **kwargs)
+            instance.undo_stack.append(markup)
+            instance.redo_stack.clear()
+            return result
+        return wrapper
 
     # Event handlers ###################################################################################################
 
@@ -226,6 +248,7 @@ class Application(ttk.Frame):
 
     # Logic handlers ###################################################################################################
 
+    @undoable
     def add_span_to_entity(self, span: Span, entity_idx: int):
         try:
             self.markup.add_span_to_entity(span, entity_idx)
@@ -233,6 +256,7 @@ class Application(ttk.Frame):
         except RuntimeError as e:
             self.set_status(e.args[0])
 
+    @undoable
     def delete_entity(self) -> str:
         self.markup.delete_entity(self.popup_menu_entity)
         if self.selected_entity == self.popup_menu_entity:
@@ -240,6 +264,7 @@ class Application(ttk.Frame):
         self.color_stack.append(self.entity2color.pop(self.popup_menu_entity))
         self.render_entities()
 
+    @undoable
     def delete_span(self, span: Span):
         removed_entity = self.markup.delete_span(span)
         if removed_entity is not None:
@@ -248,12 +273,14 @@ class Application(ttk.Frame):
                 self.selected_entity = None
         self.render_entities()
 
+    @undoable
     def merge(self):
         removed_entity = self.markup.merge(self.selected_entity, self.popup_menu_entity)
         if removed_entity is not None:
             self.color_stack.append(self.entity2color.pop(removed_entity))
         self.render_entities()
 
+    @undoable
     def new_entity(self, span: Optional[Span] = None):
         try:
             if span is None:
@@ -302,10 +329,24 @@ class Application(ttk.Frame):
                 markup.add_child_entity(child_entity_idx, parent_entity_idx)
         self.markup = markup
 
+    def redo(self):
+        if self.redo_stack:
+            self.undo_stack.append(self.markup)
+            self.markup = self.redo_stack.pop()
+            self.render_entities()
+
+    @undoable
     def set_parent(self):
         self.markup.add_child_entity(self.selected_entity, self.popup_menu_entity)
         self.render_entities()
 
+    def undo(self):
+        if self.undo_stack:
+            self.redo_stack.append(self.markup)
+            self.markup = self.undo_stack.pop()
+            self.render_entities()
+
+    @undoable
     def unset_parent(self):
         self.markup.remove_child_entity(self.selected_entity, self.popup_menu_entity)
         self.render_entities()
@@ -326,7 +367,7 @@ class Application(ttk.Frame):
         entities = sorted(self.markup.get_entities(), key=lambda idx: (self.markup.has_children(idx), idx))
         n_multientities = sum(int(self.markup.has_children(idx)) for idx in entities)
         if n_multientities:
-            label = ttk.Label(self.panel, text="Parent Entities")
+            label = tk.Label(self.panel, text="Parent Entities")
             label.grid(row=len(entities) - n_multientities + 1)
 
         for position, entity_idx in enumerate(entities):
