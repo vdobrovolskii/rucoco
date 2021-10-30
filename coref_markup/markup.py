@@ -25,6 +25,14 @@ class Entity:
     def __hash__(self) -> int:
         return self.idx
 
+    def add_child(self, child: "Entity"):
+        if child is not self:
+            self.children.add(child)
+
+    def add_parent(self, parent: "Entity"):
+        if parent is not self:
+            self.parents.add(parent)
+
     def update(self, another: "Entity"):
         """ Moves spans from another into self. """
         if self is another:
@@ -35,14 +43,14 @@ class Entity:
         while another.children:
             child_entity = another.children.pop()
             child_entity.parents.remove(another)
-            child_entity.parents.add(self)
-            self.children.add(child_entity)
+            child_entity.add_parent(self)
+            self.add_child(child_entity)
 
         while another.parents:
             parent_entity = another.parents.pop()
             parent_entity.children.remove(another)
-            parent_entity.children.add(self)
-            self.parents.add(parent_entity)
+            parent_entity.add_child(self)
+            self.add_parent(parent_entity)
 
 
 class Markup:
@@ -56,8 +64,8 @@ class Markup:
     def add_child_entity(self, child_idx: int, parent_idx: int):
         child = self._entities[child_idx]
         parent = self._entities[parent_idx]
-        parent.children.add(child)
-        child.parents.add(parent)
+        parent.add_child(child)
+        child.add_parent(parent)
 
     def add_span_to_entity(self, span: Span, entity_idx: int):
         if span in self._span2entity:
@@ -94,23 +102,13 @@ class Markup:
         return len(self._entities[entity_idx].children) > 0
 
     def get_child_entities(self, entity_idx: int, recursive: bool = True) -> Iterable[int]:
-        entity = self._entities[entity_idx]
-        entities = set()
-        for child_entity in entity.children:
-            entities.add(child_entity.idx)
-            if recursive:
-                entities.update(self.get_child_entities(child_entity.idx))
-        return entities
+        return (child.idx for child in self._entities[entity_idx].children)
 
     def get_entities(self) -> Iterable[int]:
         return (idx for idx, entity in enumerate(self._entities) if entity is not None)
 
     def get_parent_entities(self, entity_idx: int) -> Iterable[int]:
-        entities = set()
-        for parent_entity in self._entities[entity_idx].parents:
-            entities.add(parent_entity.idx)
-            entities.update(self.get_parent_entities(parent_entity.idx))
-        return entities
+        return (parent.idx for parent in self._entities[entity_idx].parents)
 
     def get_spans(self, entity_idx: int) -> Iterable[Span]:
         return iter(self._entities[entity_idx].spans)

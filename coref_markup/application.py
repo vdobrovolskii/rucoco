@@ -416,7 +416,7 @@ class Application(ttk.Frame):
         includes = [None for _ in entities]
         for old_entity_idx, new_entity_idx in index_mapping.items():
             child_entities = sorted(index_mapping[i]
-                                    for i in self.markup.get_child_entities(old_entity_idx, recursive=False))
+                                    for i in self.markup.get_child_entities(old_entity_idx))
             includes[new_entity_idx] = child_entities
         assert all(elem is not None for elem in includes)
 
