@@ -6,9 +6,10 @@ from tkinter import filedialog, messagebox, ttk
 from typing import *
 
 from coref_markup.const import *
-from coref_markup.markup import *
-from coref_markup.markup_text import *
-from coref_markup.markup_label import *
+from coref_markup.markup import Span, Markup
+from coref_markup.markup_text import MarkupText
+from coref_markup.markup_label import MarkupLabel
+from coref_markup.settings import Settings
 from coref_markup import utils
 
 
@@ -26,9 +27,10 @@ class Application(ttk.Frame):
     def __init__(self, master: tk.Tk):
         super().__init__(master)
         self.master = master
-        self.pack()
+        self.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         self.markup = Markup()
+        self.settings = Settings()
 
         self.reset_state()
         self.build_widgets()
@@ -50,7 +52,7 @@ class Application(ttk.Frame):
         status_bar = ttk.Label(self)
         status_bar.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W))
 
-        text_box = MarkupText(self, wrap="word")
+        text_box = MarkupText(settings=self.settings, master=self, wrap="word")
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
         text_box.bind(f"<Button-{RIGHT_MOUSECLICK}>", self.popup_text_menu)
         text_box.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))

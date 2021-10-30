@@ -5,19 +5,20 @@ from typing import *
 
 from coref_markup import utils
 from coref_markup.markup import Span
+from coref_markup.settings import Settings
 
 
 FONT_TYPE = "TkFixedFont"
-FONT_SIZE = 12
 
 
 class MarkupText(ScrolledText):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, font=(FONT_TYPE, FONT_SIZE))
-        self.font_size = FONT_SIZE
+    def __init__(self, *, settings: Settings, **kwargs):
+        super().__init__(**kwargs, font=(FONT_TYPE, settings.text_box_font_size))
         self.configure(state="disabled")
         self.tag_configure("sel", underline=True)
         self.clear_tags()
+
+        self.settings = settings
 
     def add_highlight(self, span: Span, entity_idx: int, color: str):
         tag = f"e{span}"
@@ -59,13 +60,13 @@ class MarkupText(ScrolledText):
         return self.count("1.0", index, "chars")[0]
 
     def font_decrease(self):
-        if self.font_size > 8:
-            self.font_size -= 1
-            self.configure(font=(FONT_TYPE, self.font_size))
+        if self.settings.text_box_font_size > 8:
+            self.settings.text_box_font_size -= 1
+            self.configure(font=(FONT_TYPE, self.settings.text_box_font_size))
 
     def font_increase(self):
-        self.font_size += 1
-        self.configure(font=(FONT_TYPE, self.font_size))
+        self.settings.text_box_font_size += 1
+        self.configure(font=(FONT_TYPE, self.settings.text_box_font_size))
 
     def get_entity_label(self, entity_idx: int, max_width: int) -> str:
         first_span = min(self.entity2spans[entity_idx], key=self.convert_tk_to_char)
