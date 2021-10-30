@@ -21,6 +21,8 @@ from coref_markup import utils
 
 
 class Application(ttk.Frame):
+    LABEL_WIDTH = 32
+
     def __init__(self, master: tk.Tk):
         super().__init__(master)
         self.master = master
@@ -36,8 +38,7 @@ class Application(ttk.Frame):
     def build_widgets(self):
         """
         Only making the following visible as instance attributes:
-            self.entity_panel
-            self.multi_entity_panel
+            self.panel
             self.status_bar
             self.text_box
             self.label_menu
@@ -57,31 +58,11 @@ class Application(ttk.Frame):
         text_menu = tk.Menu(self, tearoff=0)
 
         panel = ttk.Frame(self)
+        panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
         panel.grid(row=0, column=1, sticky=(tk.N+tk.W+tk.E+tk.S))
 
-        entity_panel = ttk.Frame(panel)
-        entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        entity_panel.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
-
-        separator = ttk.Separator(panel, orient="vertical")
-        separator.grid(row=0, column=1, sticky=(tk.N+tk.S))
-
-        multi_entity_panel = ttk.Frame(panel)
-        multi_entity_panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        multi_entity_panel.grid(row=0, column=2, sticky=(tk.N+tk.W+tk.E+tk.S))
-
-        entity_panel_label = ttk.Label(entity_panel, text="Entities")
-        entity_panel_label.grid(row=0)
-
-        mentity_panel_label = ttk.Label(multi_entity_panel, text="mEntities")
-        mentity_panel_label.grid(row=0)
-
-        new_entity_button = ttk.Button(entity_panel, text="New Entity", command=self.new_entity)
-        new_entity_button.grid(row=1)
-
-        new_mentity_button = ttk.Button(multi_entity_panel, text="New mEntity",
-                                        command=partial(self.new_entity, multi=True))
-        new_mentity_button.grid(row=1)
+        entity_panel_label = tk.Label(panel, text="Entities", width=self.LABEL_WIDTH)
+        entity_panel_label.grid(row=0, sticky=tk.N)
 
         label_menu = tk.Menu(self, tearoff=0)
         label_menu.add_command(label="Merge", command=self.merge)
@@ -110,13 +91,9 @@ class Application(ttk.Frame):
         self.master.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=3)
-        self.columnconfigure(1, weight=1)
-        panel.columnconfigure(0, weight=1)
-        panel.columnconfigure(2, weight=1)
 
         # Registering attributes
-        self.entity_panel = entity_panel
-        self.multi_entity_panel = multi_entity_panel
+        self.panel = panel
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
@@ -172,11 +149,11 @@ class Application(ttk.Frame):
             self.entity2label[entity_idx].leave()
 
         if recursive:
-            for inner_entity_idx in self.markup.get_inner_entities(entity_idx):
-                self.mouse_hover_handler(event, inner_entity_idx, underline=False, recursive=False)
+            for child_entity_idx in self.markup.get_child_entities(entity_idx):
+                self.mouse_hover_handler(event, child_entity_idx, underline=False, recursive=False)
 
-            for outer_entity_idx in self.markup.get_outer_entities(entity_idx):
-                self.mouse_hover_handler(event, outer_entity_idx, underline=False, recursive=False)
+            for parent_entity_idx in self.markup.get_parent_entities(entity_idx):
+                self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False)
 
     def open_file_handler(self):
         if self.markup and not messagebox.askokcancel("Open", "Are you sure? All unsaved progress will be lost."):
@@ -198,14 +175,12 @@ class Application(ttk.Frame):
 
         if self.selected_entity is not None and self.selected_entity != self.popup_menu_entity:
 
-            if self.markup.is_multi_entity(self.selected_entity) == self.markup.is_multi_entity(self.popup_menu_entity):
-                states["Merge"] = "active"
+            states["Merge"] = "active"
 
-            if self.markup.is_multi_entity(self.popup_menu_entity):
-                if self.markup.is_part_of(self.selected_entity, self.popup_menu_entity):
-                    states["Unset parent"] = "active"
-                else:
-                    states["Set as parent"] = "active"
+            if self.markup.is_child_of(self.selected_entity, self.popup_menu_entity):
+                states["Unset parent"] = "active"
+            else:
+                states["Set as parent"] = "active"
 
         for key, value in states.items():
             self.label_menu.entryconfigure(key, state=value)
@@ -277,12 +252,12 @@ class Application(ttk.Frame):
             self.color_stack.append(self.entity2color.pop(removed_entity))
         self.render_entities()
 
-    def new_entity(self, multi: bool = False, span: Optional[Span] = None):
+    def new_entity(self, span: Optional[Span] = None):
         try:
             if span is None:
                 span = self.text_box.get_selection_indices()
             self.text_box.clear_selection()
-            self.markup.new_entity(span, multi=multi)
+            self.markup.new_entity(span)
             self.render_entities()
         except RuntimeError as e:
             self.set_status(e.args[0])
@@ -307,7 +282,8 @@ class Application(ttk.Frame):
                 self.read_markup(data)
                 self.reset_state()
                 self.render_entities()
-            except:
+            except Exception as e:
+                print(e)
                 self.text_box.set_text(old_text)
                 self.set_status(f"error: couldn't read file at \"{path}\"")
         else:
@@ -315,21 +291,22 @@ class Application(ttk.Frame):
 
     def read_markup(self, data: dict) -> Markup:
         markup = Markup()
-        is_multi = list(map(bool, data["includes"]))
         for entity_idx, entity in enumerate(data["entities"]):
-            markup.new_entity(self.text_box.convert_char_to_tk(entity[0]), is_multi[entity_idx])
+            markup.new_entity(self.text_box.convert_char_to_tk(entity[0]))
             for span in entity[1:]:
                 markup.add_span_to_entity(self.text_box.convert_char_to_tk(span), entity_idx)
-        for entity_idx, inner_entities in enumerate(data["includes"]):
-            for inner_entity_idx in inner_entities:
-                markup.add_entity_to_mentity(inner_entity_idx, entity_idx)
+        for parent_entity_idx, child_entities in enumerate(data["includes"]):
+            for child_entity_idx in child_entities:
+                markup.add_child_entity(child_entity_idx, parent_entity_idx)
         self.markup = markup
 
     def set_parent(self):
-        self.markup.add_entity_to_mentity(self.selected_entity, self.popup_menu_entity)
+        self.markup.add_child_entity(self.selected_entity, self.popup_menu_entity)
+        self.render_entities()
 
     def unset_parent(self):
-        self.markup.remove_entity_from_mentity(self.selected_entity, self.popup_menu_entity)
+        self.markup.remove_child_entity(self.selected_entity, self.popup_menu_entity)
+        self.render_entities()
 
     # Renderers ########################################################################################################
 
@@ -339,23 +316,25 @@ class Application(ttk.Frame):
         return self.entity2color[entity_idx]
 
     def render_entities(self):
-        for child in chain(self.entity_panel.winfo_children(), self.multi_entity_panel.winfo_children()):
-            if isinstance(child, MarkupLabel):
+        for row in range(1, self.panel.grid_size()[1]):
+            for child in self.panel.grid_slaves(row=row):
                 child.destroy()
         self.text_box.clear_tags()
 
-        for entity_idx in self.markup.get_entities():
+        entities = sorted(self.markup.get_entities(), key=lambda idx: (self.markup.has_children(idx), idx))
+        n_multientities = sum(int(self.markup.has_children(idx)) for idx in entities)
+        if n_multientities:
+            label = ttk.Label(self.panel, text="Parent Entities")
+            label.grid(row=len(entities) - n_multientities + 1)
+
+        for position, entity_idx in enumerate(entities):
             color = self.get_entity_color(entity_idx)
             for span in self.markup.get_spans(entity_idx):
                 self.text_box.add_highlight(span, entity_idx, color)
-            label_text = self.text_box.get_entity_label(entity_idx)
+            label_text = self.text_box.get_entity_label(entity_idx, self.LABEL_WIDTH)
 
-            if isinstance(self.markup._entities[entity_idx], MultiEntity):
-                placement = self.multi_entity_panel
-            else:
-                placement = self.entity_panel
-            label = MarkupLabel(placement, text=label_text, background=color, borderwidth=0, relief="solid")
-            label.grid(row=placement.grid_size()[1], sticky=tk.W)
+            label = MarkupLabel(self.panel, text=label_text, background=color, borderwidth=0, relief="solid")
+            label.grid(row=position + 1 + int(self.markup.has_children(entity_idx)), sticky=tk.W)
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", partial(self.mouse_handler_label, entity_idx=entity_idx))
@@ -393,9 +372,9 @@ class Application(ttk.Frame):
 
         includes = [None for _ in entities]
         for old_entity_idx, new_entity_idx in index_mapping.items():
-            inner_entities = sorted(index_mapping[i]
-                                    for i in self.markup.get_inner_entities(old_entity_idx, recursive=False))
-            includes[new_entity_idx] = inner_entities
+            child_entities = sorted(index_mapping[i]
+                                    for i in self.markup.get_child_entities(old_entity_idx, recursive=False))
+            includes[new_entity_idx] = child_entities
         assert all(elem is not None for elem in includes)
 
         return {

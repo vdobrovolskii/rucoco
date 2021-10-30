@@ -67,9 +67,9 @@ class MarkupText(ScrolledText):
         self.font_size += 1
         self.configure(font=(FONT_TYPE, self.font_size))
 
-    def get_entity_label(self, entity_idx: int) -> str:
+    def get_entity_label(self, entity_idx: int, max_width: int) -> str:
         first_span = min(self.entity2spans[entity_idx], key=self.convert_tk_to_char)
-        return self.get(*first_span)[:32]
+        return self.get(*first_span)[:max_width]
 
     def get_selection_indices(self) -> Span:
         try:
