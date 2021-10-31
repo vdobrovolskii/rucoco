@@ -95,6 +95,7 @@ class MarkupText(ScrolledText):
                 self.tag_raise(tag)
                 self.tag_configure(tag, background=utils.multiply_color(self.tag_cget(tag, "background"),
                                                                         1 - 0.15 * self_in_self))
+        self.tag_raise("sel")  # selection to be above any other tag
 
     def remove_extra_highlight(self, span: Span):
         if span in self.extra_highlights:

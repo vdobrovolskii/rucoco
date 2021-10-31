@@ -56,7 +56,7 @@ class Application(ttk.Frame):
         status_bar = ttk.Label(self)
         status_bar.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W))
 
-        text_box = MarkupText(settings=self.settings, master=self, wrap="word")
+        text_box = MarkupText(settings=self.settings, master=self, highlightthickness=0, wrap="word")
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
         text_box.bind(f"<Button-{RIGHT_MOUSECLICK}>", self.popup_text_menu)
         text_box.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
@@ -126,6 +126,7 @@ class Application(ttk.Frame):
         self.redo_stack = deque([], self.UNDO_REDO_STACK_SIZE)
 
         self.filename: Optional[str] = None
+        self.modified = False
 
     def undoable(func: Callable[..., Any]):
         def wrapper(instance: "Application", *args, **kwargs):
@@ -133,6 +134,7 @@ class Application(ttk.Frame):
             result = func(instance, *args, **kwargs)
             instance.undo_stack.append(markup)
             instance.redo_stack.clear()
+            instance.modified = True
             return result
         return wrapper
 
@@ -140,6 +142,7 @@ class Application(ttk.Frame):
 
     def close_program_handler(self):
         if (not self.markup
+                or not self.modified
                 or messagebox.askokcancel("Quit", "Are you sure you want to quit? All unsaved progress will be lost.")):
             self.master.destroy()
 
@@ -184,8 +187,11 @@ class Application(ttk.Frame):
                 self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False)
 
     def open_file_handler(self):
-        if self.markup and not messagebox.askokcancel("Open", "Are you sure? All unsaved progress will be lost."):
+        if (self.markup
+                and self.modified
+                and not messagebox.askokcancel("Open", "Are you sure? All unsaved progress will be lost.")):
             return
+
         path = filedialog.askopenfilename(filetypes=[("All supported types", "*.txt *.json"),
                                                      ("Plain text", "*.txt"),
                                                      ("JSON Markup", "*.json")])
@@ -451,4 +457,5 @@ class Application(ttk.Frame):
         with open(path, mode="w", encoding="utf8") as f:
             json.dump(state, f, ensure_ascii=False)
         self.filename = path
+        self.modified = False
         self.set_status(f"Saved to {path}")
