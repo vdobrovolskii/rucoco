@@ -127,7 +127,6 @@ class Application(ttk.Frame):
 
         self.filename: Optional[str] = None
 
-    @staticmethod
     def undoable(func: Callable[..., Any]):
         def wrapper(instance: "Application", *args, **kwargs):
             markup = deepcopy(instance.markup)
