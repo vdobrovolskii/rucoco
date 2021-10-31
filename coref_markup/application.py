@@ -3,6 +3,7 @@ from copy import deepcopy
 from functools import partial
 from itertools import cycle
 import json
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from typing import *
@@ -78,8 +79,9 @@ class Application(ttk.Frame):
         # Menu
         menubar = tk.Menu()
         file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="Open", command=self.open_file_handler)
-        file_menu.add_command(label="Save", command=self.save_file_handler)
+        file_menu.add_command(label="Open...", command=self.open_file_handler)
+        file_menu.add_command(label="Save", command=self.save_file_handler, accelerator="Ctrl+s")
+        file_menu.add_command(label="Save As...", command=self.save_file_as_handler)
         menubar.add_cascade(label="File", menu=file_menu)
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label="Undo", command=self.undo, accelerator="Ctrl+z")
@@ -96,6 +98,7 @@ class Application(ttk.Frame):
         self.master.bind("<Control-minus>", lambda _: self.text_box.font_decrease())
         self.master.bind("<Control-z>", lambda _: self.undo())
         self.master.bind("<Control-y>", lambda _: self.redo())
+        self.master.bind("<Control-s>", lambda _: self.save_file_handler())
 
         # Managing resizing
         self.master.rowconfigure(0, weight=1)
@@ -121,6 +124,8 @@ class Application(ttk.Frame):
 
         self.undo_stack = deque([], self.UNDO_REDO_STACK_SIZE)
         self.redo_stack = deque([], self.UNDO_REDO_STACK_SIZE)
+
+        self.filename: Optional[str] = None
 
     @staticmethod
     def undoable(func: Callable[..., Any]):
@@ -239,12 +244,27 @@ class Application(ttk.Frame):
             self.text_menu.grab_release()
 
     def save_file_handler(self):
+        if self.filename is None or not self.filename.endswith(".json"):
+            self.save_file_as_handler()
+        else:
+            self.export(self.filename)
+
+    def save_file_as_handler(self):
+        if self.filename is None:
+            initialdir = None
+            initialfile = None
+        else:
+            initialdir, initialfile = os.path.split(self.filename)
+            if not initialfile.endswith(".json"):
+                initialfile = os.path.splitext(initialfile)[0] + ".json"
+
         path = filedialog.asksaveasfilename(confirmoverwrite=True,
                                             defaultextension=".json",
-                                            filetypes=[("JSON Markup", "*.json")])
+                                            filetypes=[("JSON Markup", "*.json")],
+                                            initialdir=initialdir,
+                                            initialfile=initialfile)
         if path:
-            with open(path, mode="w", encoding="utf8") as f:
-                json.dump(self.export(), f, ensure_ascii=False)
+            self.export(path)
 
     # Logic handlers ###################################################################################################
 
@@ -300,6 +320,7 @@ class Application(ttk.Frame):
                 self.markup = Markup()
                 self.reset_state()
                 self.render_entities()
+                self.filename = os.path.abspath(path)
             except UnicodeDecodeError:
                 self.set_status(f"error: couldn't read file at \"{path}\"")
         elif path.endswith(".json"):
@@ -311,6 +332,7 @@ class Application(ttk.Frame):
                 self.read_markup(data)
                 self.reset_state()
                 self.render_entities()
+                self.filename = os.path.abspath(path)
             except Exception as e:
                 print(e)
                 self.text_box.set_text(old_text)
@@ -400,7 +422,7 @@ class Application(ttk.Frame):
 
     # Export ###########################################################################################################
 
-    def export(self) -> dict:
+    def export(self, path: str):
         old_entities = []
         for entity_idx in self.markup.get_entities():
             spans = sorted(self.text_box.convert_tk_to_char(span) for span in self.markup.get_spans(entity_idx))
@@ -420,8 +442,13 @@ class Application(ttk.Frame):
             includes[new_entity_idx] = child_entities
         assert all(elem is not None for elem in includes)
 
-        return {
+        state = {
             "entities": entities,
             "includes": includes,
             "text": self.text_box.get("1.0", "end-1c")
         }
+
+        with open(path, mode="w", encoding="utf8") as f:
+            json.dump(state, f, ensure_ascii=False)
+        self.filename = path
+        self.set_status(f"Saved to {path}")

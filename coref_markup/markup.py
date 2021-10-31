@@ -116,7 +116,7 @@ class Markup:
     def is_child_of(self, child_idx: int, parent_idx: int) -> bool:
         return self._entities[child_idx] in self._entities[parent_idx].children
 
-    def merge(self, a_idx: int, b_idx: int) -> Optional[int]:
+    def merge(self, a_idx: int, b_idx: int) -> int:
         """ Returns the id of the entity that is no more"""
         a = self._entities[a_idx]
         b = self._entities[b_idx]
