@@ -333,10 +333,11 @@ class Application(ttk.Frame):
                 self.reset_state()
                 self.render_entities()
                 self.filename = os.path.abspath(path)
-            except Exception as e:
-                print(e)
+            except:
                 self.text_box.set_text(old_text)
+                self.render_entities()
                 self.set_status(f"error: couldn't read file at \"{path}\"")
+                self.master.update_idletasks()
         else:
             self.set_status(f"error: invalid file type at \"{path}\"")
 
