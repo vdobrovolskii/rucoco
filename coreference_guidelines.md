@@ -292,77 +292,77 @@
 
 ## Как это все сделать в программе для разметки?
 
-![image](https://user-images.githubusercontent.com/50133822/138106121-4556b9b0-950a-4102-9c2a-e9a575941895.png) \
+![image](https://user-images.githubusercontent.com/50133822/139684058-624a280c-3639-4575-9d51-fa14f9cc49ae.png) \
 Чистый неразмеченный текст.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138106214-d719d786-0262-43e0-8337-60da4bccaa88.png) \
-Добавим первую сущность, выделив отрезок текста и выбрав в контекстном меню "Add", либо нажав на кнопку "New Entity".
+![image](https://user-images.githubusercontent.com/50133822/139684410-626cd5ba-8454-47f8-ae41-d8b0d735ef5b.png) \
+Добавим первую сущность, выделив отрезок текста и выбрав в контекстном меню "Add".
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138109042-ea250b5f-55cb-45b3-a957-7dcbef722ab5.png) \
-Добавим еще одну аннотацию этой сущности, выделив отрезок текста и кликнув по сущности на панели справа.
+![image](https://user-images.githubusercontent.com/50133822/139684840-0d75bd07-deb1-4398-8a34-86255cc07954.png) \
+Добавим еще аннотации этой сущности, выделив оба раза отрезок текста и кликнув по сущности на панели справа.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138107162-a45fcd58-c6b7-462c-af42-b49479afcf04.png) \
+![image](https://user-images.githubusercontent.com/50133822/139685059-401d0bd0-a8c4-4bf3-94bf-0fd8f9006734.png) \
 Добавим еще одну сущность.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138109418-00ac7e67-27de-4982-a5de-68cd55a3aeef.png) \
+![image](https://user-images.githubusercontent.com/50133822/139685161-92ec2112-a00c-498c-b9dc-ccd0df95a441.png) \
 Если кликнуть по сущности на панели справа, она выделится черной рамкой. Теперь любой выделенный отрезок текста будет сразу отнесен к этой сущности.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138109744-a8fb3930-ea5f-49ec-b871-c69c47fd13f2.png) \
+![0](https://user-images.githubusercontent.com/50133822/139685918-97c058f5-3e2f-4761-886c-054bc0268d00.gif) \
 Выделим остальные упоминания этой сущности. Затем кликнем по сущности (или по пустому пространству) на панели справа, чтобы отключить режим отнесения к ней всех выделенных отрезков текста.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138110629-9f0395ad-92d6-4299-9ff2-f082275c2cfa.png) \
+![image](https://user-images.githubusercontent.com/50133822/139686122-d931e40a-bb6d-48f0-9695-66e767c3743b.png) \
 Выделим еще одну кореферентную цепочку.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138110724-b15c20b6-eeb7-465a-90c1-219a2fd786f4.png) \
-Обратим внимание на упоминание, которые отсылает сразу к двум студентам. Для того, чтобы зафиксировать этот факт в разметке, создадим на выделенном отрезке объект MultiEntity. Это позволит нам относить упоминания к нескольким сущностям.
+![image](https://user-images.githubusercontent.com/50133822/139686269-196a7648-373b-455a-bb7a-0325ae22b54a.png) \
+Обратим внимание на упоминание, которые отсылает сразу к двум студентам. Для того, чтобы зафиксировать этот факт в разметке, создадим на выделенном отрезке новую сущность.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138111666-c697213a-b0b0-4fc7-89f9-f61c8c1dd43b.png) \
-Затем выделим объект "один из них" при помощи левого клика на лейбле на правой панели и кликнем правой кнопкой мыши по новой MultiEntity "ним". Выберем "Set as parent", чтобы включить один объект в другой. 
+![1](https://user-images.githubusercontent.com/50133822/139686851-aca13d25-eda0-4662-8804-703da4a5ec5f.gif) \
+Затем выделим объект "один из них" при помощи левого клика на лейбле на правой панели и кликнем правой кнопкой мыши по новой сущности "ним". Выберем "Set as parent", чтобы назначить сущность "ним" родителем сущности "один из них". 
 
 </br>
 
-![aaa](https://user-images.githubusercontent.com/50133822/138113612-f08439ba-8229-4acd-bd9b-bb316880cc5d.gif) \
+![2](https://user-images.githubusercontent.com/50133822/139687358-01cb13ae-068c-452f-81c9-8ccffeb3e4d9.gif) \
 Сделаем то же самое с объектом "другой индийский студент. Теперь при наведении курсора на объект "ним" будут подсвечиваться все входящие в него упоминания.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138114564-f92321b0-7e9e-4633-be7f-53abae20f00d.png) \
-Разметим еще один MultiEntity. Обратите внимание, что аннотации могут вкладываться друг в друга.
+![image](https://user-images.githubusercontent.com/50133822/139688220-6d360c2c-fdf4-4abb-be66-3a1246d6d1bb.png) \
+Разметим еще одну родительскую сущность. Обратите внимание, что аннотации могут вкладываться друг в друга.
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138114984-fbd18bd0-b12c-42aa-b2de-a2e179b301d0.png) \
+![image](https://user-images.githubusercontent.com/50133822/139688366-793563ba-f402-4c7d-969c-c5667c9ed58e.png) \
 Добавим еще одну сущность, которая будет включена дочерней в цепочку "Четверо студентов из Индии".
 
 </br>
 
-![bbb](https://user-images.githubusercontent.com/50133822/138115804-597f5cb4-b9d8-4671-8e40-6e207cdc22bd.gif) \
+![3](https://user-images.githubusercontent.com/50133822/139690590-7bcd7d45-37ed-48e6-b79b-805edb17b035.gif) \
 Добавим объекты "один из них", "другой индийский студент", "двое", "ним" как дочерние к объекту "Четверо студентов из Индии".
 
 </br>
 
-![image](https://user-images.githubusercontent.com/50133822/138117094-582eedb3-e12e-4805-918a-b4a51d1f64f0.png) \
-Добавим недостающую аннотацию к "реке Волге" и разметим все оставшиеся сущности.
+![image](https://user-images.githubusercontent.com/50133822/139691462-9cd50b4f-e4f3-447d-864c-2fb21f10b72b.png) \
+Разметим все оставшиеся сущности.
 
 </br>
 
-![ссс](https://user-images.githubusercontent.com/50133822/138117673-ee10f142-0c35-4734-9fd8-5f21112df1a1.gif) \
+![4](https://user-images.githubusercontent.com/50133822/139691420-f02a16c8-868f-42ac-8451-a9c9d1035f8c.gif) \
 Вы великолепны! \
 Не забудьте сохранить разметку :)
 
