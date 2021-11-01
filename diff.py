@@ -29,19 +29,24 @@ def diff(a: Markup, b: Markup, context_len: int = 32):
         print_separator("Spans belonging to different entities")
         diff_entities(a, b, mixed_spans, a.text, context_len)
 
-    missing_children_a = get_missing_children(
+    missing_children_a, child_accuracy_a = get_missing_children(
         a, b, common_spans, entity_mapping
     )
     if missing_children_a:
         print_separator("Children in A but not in B")
         diff_children(missing_children_a, a.text)
 
-    missing_children_b = get_missing_children(
+    missing_children_b, child_accuracy_b = get_missing_children(
         b, a, common_spans, get_entity_mapping(b, a, common_spans)
     )
     if missing_children_b:
         print_separator("Children in B but not in A")
         diff_children(missing_children_b, a.text)
+
+    print_separator("Metrics")
+    print(f"LEA (without child spans): {lea(*versions):.3f}")
+    print(f"Child entities agreement:  "
+          f"{f1(child_accuracy_a, child_accuracy_b):.3f}")
 
 
 def diff_children(children_and_parents: Set[Tuple[Entity, Entity]],
@@ -87,6 +92,10 @@ def entity_to_str(entity: Entity, text, max_spans: int = 3) -> str:
                             for span in spans_by_position))
 
 
+def f1(precision: float, recall: float, eps: float = 1e-7) -> float:
+    return (precision * recall) / (precision + recall + eps) * 2
+
+
 def get_context(span: Span, text: str, context_len: int) -> str:
     return repr(f"{text[span[0] - context_len:span[0]]}"
                 f">>{text[slice(*span)]}<<"
@@ -110,16 +119,31 @@ def get_missing_children(a: Markup,
                          b: Markup,
                          common_spans: Set[Span],
                          entity_mapping: Dict[Entity, Entity]
-                         ) -> Set[Tuple[Entity, Entity]]:
+                         ) -> Tuple[Set[Tuple[Entity, Entity]], float]:
+    """
+    Returns:
+        missing_children: a set of pairs (child, parent), where each child
+            is annotated in A but not in B
+        accuracy: the percentage of children in A correctly identified in B
+    """
+    total_children, correct_children = 0, 0
+
     missing_children = set()
     for a_entity, b_entity in entity_mapping.items():
         a_children = {entity_mapping[a.span2entity[span]]
                       for span in (a_entity.included_spans & common_spans)}
         b_children = {b.span2entity[span]
                       for span in (b_entity.included_spans & common_spans)}
-        missing_children.update((child, a_entity)
-                                for child in (a_children - b_children))
-    return missing_children
+        a_children_missing = {(child, a_entity)
+                              for child in (a_children - b_children)}
+        missing_children.update(a_children_missing)
+
+        total_children += len(a_children)
+        correct_children += len(a_children) - len(a_children_missing)
+
+    accuracy = 1.0 if not total_children else correct_children / total_children
+
+    return missing_children, accuracy
 
 
 def lea(a: Markup, b: Markup, eps: float = 1e-7) -> float:
@@ -131,9 +155,7 @@ def lea(a: Markup, b: Markup, eps: float = 1e-7) -> float:
 
     doc_precision = precision / (p_weight + eps)
     doc_recall = recall / (r_weight + eps)
-    doc_f1 = (doc_precision * doc_recall) \
-        / (doc_precision + doc_recall + eps) * 2
-    return doc_f1
+    return f1(doc_precision, doc_recall, eps=eps)
 
 
 def _lea(key: List[List[Span]],
@@ -177,6 +199,3 @@ if __name__ == "__main__":
         versions.append(read_markup(filename))
 
     diff(*versions)
-
-    print_separator("Metrics")
-    print(f"LEA (without child spans): {lea(*versions):.3f}")
