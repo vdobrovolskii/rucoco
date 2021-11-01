@@ -13,7 +13,7 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     root = tk.Tk()
-    root.iconphoto(False, tk.PhotoImage(file='icon.png'))
+    root.iconphoto(False, tk.PhotoImage(file="resources/icon.png"))
     root.title("Coref Markup")
     app = Application(root)
     if args.filename is not None:

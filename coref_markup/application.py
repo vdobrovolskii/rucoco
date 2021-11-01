@@ -169,11 +169,16 @@ class Application(ttk.Frame):
             self.add_span_to_entity(self.text_box.get_selection_indices(), self.selected_entity)
             self.text_box.clear_selection()
 
-    def mouse_hover_handler(self, event: tk.Event, entity_idx: int, underline: bool = True, recursive: bool = True):
+    def mouse_hover_handler(self,
+                            event: tk.Event,
+                            entity_idx: int,
+                            underline: bool = True,
+                            recursive: bool = True,
+                            relation: Optional[str] = None):
         if event.type is tk.EventType.Enter:
             for span in self.markup.get_spans(entity_idx):
                 self.text_box.add_extra_highlight(span, underline=underline)
-            self.entity2label[entity_idx].enter()
+            self.entity2label[entity_idx].enter(relation=relation)
         else:
             for span in self.markup.get_spans(entity_idx):
                 self.text_box.remove_extra_highlight(span)
@@ -181,10 +186,10 @@ class Application(ttk.Frame):
 
         if recursive:
             for child_entity_idx in self.markup.get_child_entities(entity_idx):
-                self.mouse_hover_handler(event, child_entity_idx, underline=False, recursive=False)
+                self.mouse_hover_handler(event, child_entity_idx, underline=False, recursive=False, relation="child")
 
             for parent_entity_idx in self.markup.get_parent_entities(entity_idx):
-                self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False)
+                self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False, relation="parent")
 
     def open_file_handler(self):
         if (self.markup
