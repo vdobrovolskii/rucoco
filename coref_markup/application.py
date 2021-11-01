@@ -94,7 +94,7 @@ class Application(ttk.Frame):
         self.master.configure(menu=menubar)
 
         # Shortcuts
-        self.master.bind("<Control-=>", lambda _: self.text_box.font_increase())
+        self.master.bind("<Control-equal>", lambda _: self.text_box.font_increase())
         self.master.bind("<Control-minus>", lambda _: self.text_box.font_decrease())
         self.master.bind("<Control-z>", lambda _: self.undo())
         self.master.bind("<Control-y>", lambda _: self.redo())
