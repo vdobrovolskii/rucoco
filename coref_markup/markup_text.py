@@ -90,7 +90,9 @@ class MarkupText(ScrolledText):
         for span, entity_idx in all_spans:
             tags = [tag for tag in self.tag_names(span[0]) if tag.startswith("e")]
             if len(tags) > 1:
-                self_in_self = sum(1 for tag in tags if self.tag2entity[tag] == entity_idx) - 1
+                sibling_tags = (tag for tag in tags if self.tag2entity[tag] == entity_idx)
+                enclosing_tags = (tag for tag in sibling_tags if self.compare(span[1], "<=", self.tag_ranges(tag)[1]))
+                self_in_self = sum(1 for _ in enclosing_tags) - 1
                 tag = f"e{span}"
                 self.tag_raise(tag)
                 self.tag_configure(tag, background=utils.multiply_color(self.tag_cget(tag, "background"),
