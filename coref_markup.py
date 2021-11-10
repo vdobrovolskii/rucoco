@@ -17,11 +17,12 @@ if __name__ == "__main__":
     root.title("Coref Markup")
 
     ttk.Style().theme_use({"Windows": "winnative", "Darwin": "aqua"}.get(platform.system(), "default"))
+    dark_mode = False
     if platform.system() == "Darwin":
         try:
             dark_mode = bool(root.tk.call("::tk::unsupported::MacWindowStyle", "isdark", root))
         except tk.TclError:
-            dark_mode = False
+            pass
 
     app = Application(root, dark_mode=dark_mode)
     if args.filename is not None:
