@@ -15,8 +15,16 @@ if __name__ == "__main__":
     root = tk.Tk()
     root.iconphoto(False, tk.PhotoImage(file="resources/icon.png"))
     root.title("Coref Markup")
-    app = Application(root)
+
+    ttk.Style().theme_use({"Windows": "winnative", "Darwin": "aqua"}.get(platform.system(), "default"))
+    if platform.system() == "Darwin":
+        try:
+            dark_mode = bool(root.tk.call("::tk::unsupported::MacWindowStyle", "isdark", root))
+        except tk.TclError:
+            dark_mode = False
+
+    app = Application(root, dark_mode=dark_mode)
     if args.filename is not None:
         app.open_file(args.filename)
-    ttk.Style().theme_use({"Windows": "winnative", "Darwin": "aqua"}.get(platform.system(), "default"))
+
     app.mainloop()

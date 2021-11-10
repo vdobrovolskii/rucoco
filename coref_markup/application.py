@@ -28,10 +28,12 @@ class Application(ttk.Frame):
     LABEL_WIDTH = 32
     UNDO_REDO_STACK_SIZE = 5
 
-    def __init__(self, master: tk.Tk):
+    def __init__(self, master: tk.Tk, dark_mode: bool = False):
         super().__init__(master)
         self.master = master
         self.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
+
+        self.dark_mode = dark_mode
 
         self.markup = Markup()
         self.settings = Settings()
@@ -114,7 +116,7 @@ class Application(ttk.Frame):
         self.text_menu = text_menu
 
     def reset_state(self):
-        self.all_colors = cycle(utils.get_colors())
+        self.all_colors = cycle(utils.get_colors(self.dark_mode))
         self.entity2color: Dict[int, str] = {}
         self.color_stack: List[str] = []
 
