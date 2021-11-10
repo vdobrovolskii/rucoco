@@ -335,7 +335,7 @@ class Application(ttk.Frame):
                 self.set_status(f"error: couldn't read file at \"{path}\"")
         elif path.endswith(".json"):
             try:
-                old_text = self.text_box.get("1.0", "end")
+                old_text = self.text_box.get("1.0", "end-1c")
                 with open(path, encoding="utf8") as f:
                     data = json.load(f)
                 self.text_box.set_text(data["text"])
