@@ -20,16 +20,15 @@ COLORS = [
 ]
 
 DARK_COLORS = [
-    "#e31a1c",
-    "#ff7f00",
-    "#fdbf6f",
-    "#ffdd24",
-    "#ffff99",
-    "#b2df8a",
+    "#ea6161",
+    "#f58f3b",
+    "#f5b83b",
+    "#d9c740",
+    "#8dd094",
     "#33a02c",
-    "#a6cee3",
+    "#87c8eb",
     "#1f78b4",
-    "#cab2d6",
+    "#bd98d0",
     "#6a3d9a",
     "#fb9a99",
     "#b15928"
