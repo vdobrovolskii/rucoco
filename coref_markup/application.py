@@ -96,11 +96,26 @@ class Application(ttk.Frame):
         self.master.configure(menu=menubar)
 
         # Shortcuts
-        self.master.bind("<Control-equal>", lambda _: self.text_box.font_increase())
-        self.master.bind("<Control-minus>", lambda _: self.text_box.font_decrease())
-        self.master.bind("<Control-z>", lambda _: self.undo())
-        self.master.bind("<Control-y>", lambda _: self.redo())
-        self.master.bind("<Control-s>", lambda _: self.save_file_handler())
+        copy_event = lambda: text_box.event_generate("<<Copy>>")
+        shortcuts = {
+            61: text_box.font_increase,     # +
+            45: text_box.font_decrease,     # -
+            122: self.undo,                 # z
+            90: self.undo,                  # Z
+            1103: self.undo,                # z (Russian layout)
+            1071: self.undo,                # Z (Russian layout)
+            121: self.redo,                 # y
+            89: self.redo,                  # Y
+            1085: self.redo,                # y (Russian layout)
+            1053: self.redo,                # Y (Russian layout)
+            115: self.save_file_handler,    # s
+            83: self.save_file_handler,     # S
+            1099: self.save_file_handler,   # s (Russian layout)
+            1067: self.save_file_handler,   # S (Russian layout)
+            1089: copy_event,               # c (Russian layout)
+            1057: copy_event,               # C (Russian layout)
+        }
+        self.master.bind("<Control-Key>", lambda event: shortcuts.get(event.keysym_num, lambda: None)())
 
         # Managing resizing
         self.master.rowconfigure(0, weight=1)
