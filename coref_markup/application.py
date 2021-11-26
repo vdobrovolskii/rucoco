@@ -65,9 +65,22 @@ class Application(ttk.Frame):
 
         text_menu = tk.Menu(self, tearoff=0)
 
-        panel = ttk.Frame(self)
+        panel_container = tk.Canvas(self)
+        panel_container.grid(row=0, column=1, sticky=(tk.N+tk.W+tk.E+tk.S))
+        panel_scrollbar = ttk.Scrollbar(self, orient="vertical", command=panel_container.yview)
+        panel_scrollbar.grid(row=0, column=2, sticky=(tk.N+tk.S))
+        panel = ttk.Frame(panel_container)
         panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        panel.grid(row=0, column=1, sticky=(tk.N+tk.W+tk.E+tk.S))
+        panel.bind("<MouseWheel>", lambda event: panel_container.yview_scroll(-1 * event.delta, "units"))
+        panel.bind(
+            "<Configure>",
+            lambda _: panel_container.configure(
+                scrollregion=panel_container.bbox("all")
+            )
+        )
+        # panel.grid(sticky=(tk.N+tk.W+tk.E+tk.S))
+        panel_container.configure(yscrollcommand=panel_scrollbar.set)
+        panel_container.create_window((0, 0), window=panel, anchor="nw")
 
         entity_panel_label = tk.Label(panel, text="Entities", width=self.LABEL_WIDTH)
         entity_panel_label.grid(row=0, sticky=tk.N)
