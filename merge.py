@@ -104,12 +104,16 @@ def normalize(s: str) -> str:
 
 
 def read_markup(path: str) -> Markup:
+    return Markup(**read_markup_dict)
+
+
+def read_markup_dict(path: str) -> Markup:
     with open(path, mode="r", encoding="utf8") as f:
         markup_dict = json.load(f)
     markup_dict["entities"] = [[tuple(span) for span in entity]
                                for entity in markup_dict["entities"]]
     markup_dict["text"] = normalize(markup_dict["text"])
-    return Markup(**markup_dict)
+    return markup_dict
 
 
 if __name__ == "__main__":

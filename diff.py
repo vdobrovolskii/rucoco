@@ -1,7 +1,8 @@
 import argparse
+from collections import defaultdict
 from typing import *
 
-from merge import Entity, Markup, Span, read_markup
+from merge import Entity, Markup, Span, read_markup_dict
 
 
 def diff(a: Markup, b: Markup, context_len: int = 32):
@@ -29,24 +30,19 @@ def diff(a: Markup, b: Markup, context_len: int = 32):
         print_separator("Spans belonging to different entities")
         diff_entities(a, b, mixed_spans, a.text, context_len)
 
-    missing_children_a, child_accuracy_a = get_missing_children(
+    missing_children_a = get_missing_children(
         a, b, common_spans, entity_mapping
     )
     if missing_children_a:
         print_separator("Children in A but not in B")
         diff_children(missing_children_a, a.text)
 
-    missing_children_b, child_accuracy_b = get_missing_children(
+    missing_children_b = get_missing_children(
         b, a, common_spans, get_entity_mapping(b, a, common_spans)
     )
     if missing_children_b:
         print_separator("Children in B but not in A")
         diff_children(missing_children_b, a.text)
-
-    print_separator("Metrics")
-    print(f"LEA (without child spans): {lea(*versions):.3f}")
-    print(f"Child entities agreement:  "
-          f"{f1(child_accuracy_a, child_accuracy_b):.3f}")
 
 
 def diff_children(children_and_parents: Set[Tuple[Entity, Entity]],
@@ -96,6 +92,27 @@ def f1(precision: float, recall: float, eps: float = 1e-7) -> float:
     return (precision * recall) / (precision + recall + eps) * 2
 
 
+def get_children(data: dict, idx: int) -> List[Span]:
+    """ Returns a list of all the immediate AND most distant children """
+    children = set()
+    for child_idx in data["includes"][idx]:
+        children.update(data["entities"][child_idx])
+
+    visited = set()
+    stack = list(data["includes"][idx])
+    while stack:
+        child_idx = stack.pop()
+        visited.add(child_idx)
+        if not data["includes"][child_idx]:
+            children.update(data["entities"][child_idx])
+        else:
+            for grandchild_idx in data["includes"][child_idx]:
+                if grandchild_idx not in visited:
+                    stack.append(grandchild_idx)
+
+    return sorted(children)
+
+
 def get_context(span: Span, text: str, context_len: int) -> str:
     return repr(f"{text[span[0] - context_len:span[0]]}"
                 f">>{text[slice(*span)]}<<"
@@ -119,7 +136,7 @@ def get_missing_children(a: Markup,
                          b: Markup,
                          common_spans: Set[Span],
                          entity_mapping: Dict[Entity, Entity]
-                         ) -> Tuple[Set[Tuple[Entity, Entity]], float]:
+                         ) -> Set[Tuple[Entity, Entity]]:
     """
     Returns:
         missing_children: a set of pairs (child, parent), where each child
@@ -141,14 +158,12 @@ def get_missing_children(a: Markup,
         total_children += len(a_children)
         correct_children += len(a_children) - len(a_children_missing)
 
-    accuracy = 1.0 if not total_children else correct_children / total_children
-
-    return missing_children, accuracy
+    return missing_children
 
 
-def lea(a: Markup, b: Markup, eps: float = 1e-7) -> float:
-    a_clusters = sorted(sorted(entity.spans) for entity in a.entities)
-    b_clusters = sorted(sorted(entity.spans) for entity in b.entities)
+def lea(a: dict, b: dict, eps: float = 1e-7) -> float:
+    a_clusters = a["entities"]
+    b_clusters = b["entities"]
 
     recall, r_weight = _lea(a_clusters, b_clusters)
     precision, p_weight = _lea(b_clusters, a_clusters)
@@ -183,6 +198,69 @@ def _lea(key: List[List[Span]],
         return res, weight
 
 
+def lea_children(a: dict, b: dict, eps: float = 1e-7) -> float:
+    global TEXT
+    TEXT = a["text"]
+    a_clusters = [(spans, get_children(a, i))
+                  for i, spans in enumerate(a["entities"])]
+    b_clusters = [(spans, get_children(b, i))
+                  for i, spans in enumerate(b["entities"])]
+
+    recall, r_weight = _lea_children(a_clusters, b_clusters)
+    precision, p_weight = _lea_children(b_clusters, a_clusters)
+
+    doc_precision = precision / (p_weight + eps)
+    doc_recall = recall / (r_weight + eps)
+    return f1(doc_precision, doc_recall, eps=eps)
+
+
+def _lea_children(key: List[Tuple[List[Span], List[Span]]],
+                  response: List[Tuple[List[Span], List[Span]]]
+                  ) -> Tuple[float, float]:
+        response_clusters = [set(cluster) for cluster, _ in response]
+        response_map = {mention: cluster
+                        for cluster in response_clusters
+                        for mention in cluster}
+        response_children_map = defaultdict(set)
+        for cluster, children in response:
+            for mention in children:
+                response_children_map[mention].update(cluster)
+
+        importances = []
+        resolutions = []
+        for entity, children in key:
+            size = len(entity)
+            if size == 1:  # entities of size 1 are not annotated
+                continue
+            importances.append(size)
+            correct_links = 0
+            for i in range(size):
+                for j in range(i + 1, size):
+                    correct_links += int(entity[i]
+                                         in response_map.get(entity[j], {}))
+            resolutions.append(correct_links / (size * (size - 1) / 2))
+
+            if not children:
+                continue
+            importances.append(len(children))
+            correct_links = 0
+            for mention in entity:
+                for child in children:
+                    correct_links += int(mention in response_children_map.get(child, {}))
+            resolutions.append(correct_links / (size * len(children)))
+
+        res = sum(imp * res for imp, res in zip(importances, resolutions))
+        weight = sum(importances)
+        return res, weight
+
+
+def metrics(a: dict, b: dict):
+    print_separator("Metrics")
+
+    print(f"LEA (w/o child spans): {lea(a, b):.3f}")
+    print(f"LEA (w/  child spans): {lea_children(a, b):.3f}")
+
+
 def print_separator(message: str, width: int = 120):
     line_width = max(0, width - len(message) - 1)
     print(f"\n{message} {'=' * line_width}\n")
@@ -194,8 +272,8 @@ if __name__ == "__main__":
                            help="Paths to markup files to compare")
     args = argparser.parse_args()
 
-    versions = []
-    for filename in args.file:
-        versions.append(read_markup(filename))
+    markup_dicts = [read_markup_dict(filename) for filename in args.file]
+    versions = [Markup(**markup_dict) for markup_dict in markup_dicts]
 
     diff(*versions)
+    metrics(*markup_dicts)
