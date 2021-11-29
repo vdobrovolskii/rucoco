@@ -228,15 +228,14 @@ def _lea_children(key: List[Tuple[List[Span], List[Span]]],
         resolutions = []
         for entity, children in key:
             size = len(entity)
-            if size == 1:  # entities of size 1 are not annotated
-                continue
-            importances.append(size)
-            correct_links = 0
-            for i in range(size):
-                for j in range(i + 1, size):
-                    correct_links += int(entity[i]
-                                         in response_map.get(entity[j], {}))
-            resolutions.append(correct_links / (size * (size - 1) / 2))
+            if size > 1:  # entities of size 1 are not annotated
+                importances.append(size)
+                correct_links = 0
+                for i in range(size):
+                    for j in range(i + 1, size):
+                        correct_links += int(entity[i]
+                                            in response_map.get(entity[j], {}))
+                resolutions.append(correct_links / (size * (size - 1) / 2))
 
             if not children:
                 continue
