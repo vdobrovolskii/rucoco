@@ -199,8 +199,6 @@ def _lea(key: List[List[Span]],
 
 
 def lea_children(a: dict, b: dict, eps: float = 1e-7) -> float:
-    global TEXT
-    TEXT = a["text"]
     a_clusters = [(spans, get_children(a, i))
                   for i, spans in enumerate(a["entities"])]
     b_clusters = [(spans, get_children(b, i))
