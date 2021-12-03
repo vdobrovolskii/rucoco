@@ -130,6 +130,15 @@ class Application(ttk.Frame):
         }
         self.master.bind("<Control-Key>", lambda event: shortcuts.get(event.keysym_num, lambda: None)())
 
+        if MAC:
+            shortcuts.update({
+                1745: self.undo,                # z/Z (Russian layout, OSX)
+                1742: self.redo,                # y/Y (Russian layout, OSX)
+                1753: self.save_file_handler,   # s/S (Russian layout, OSX)
+                1747: copy_event,               # c/C (Russian layout, OSX)
+            })
+            self.master.bind("<Command-Key>", lambda event: shortcuts.get(event.keysym_num, lambda: None)())
+
         # Managing resizing
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
@@ -455,7 +464,7 @@ class Application(ttk.Frame):
     def render_menu(self, menu: tk.Menu, x: int, y: int):
         w, h = menu.winfo_reqwidth(), menu.winfo_reqheight()
         h //= menu.index("end") + 1
-        menu.tk_popup(x + w // 2 * int(NOT_MAC), y + h // 2 * int(NOT_MAC), 0)
+        menu.tk_popup(x + w // 2 * int(not MAC), y + h // 2 * int(not MAC), 0)
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
