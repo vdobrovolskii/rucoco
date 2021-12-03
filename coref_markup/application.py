@@ -503,3 +503,18 @@ class Application(ttk.Frame):
         self.filename = path
         self.modified = False
         self.set_status(f"Saved to {path}")
+
+    # Properties #######################################################################################################
+
+    @property
+    def filename(self) -> Optional[str]:
+        return self._filename
+
+    @filename.setter
+    def filename(self, value: Optional[str]):
+        if value is None:
+            self._filename = None
+            self.master.title("Coref Markup")
+        else:
+            self._filename = value
+            self.master.title(os.path.split(value)[1])
