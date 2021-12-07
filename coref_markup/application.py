@@ -64,8 +64,7 @@ class Application(ttk.Frame):
 
         text_menu = tk.Menu(self, tearoff=0)
 
-        panel = LabelPanel(self, self.LABEL_WIDTH)
-        panel.grid(row=0, column=1, sticky=(tk.N+tk.S+tk.W+tk.E))
+        panel = LabelPanel(self, label_width=self.LABEL_WIDTH, row=0, columns=(1, 2))
         panel.frame.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
 
         label_menu = tk.Menu(self, tearoff=0)

@@ -5,15 +5,14 @@ from typing import *
 from coref_markup.markup_label import MarkupLabel
 
 
-class LabelPanel(ttk.Frame):
-    def __init__(self, master: tk.Widget, label_width: int):
-        super().__init__(master)
+class LabelPanel:
+    def __init__(self, master: tk.Widget, *, label_width: int, row: int, columns: Tuple[int, int]):
 
-        self.canvas = tk.Canvas(self)
-        self.canvas.grid(column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
+        self.canvas = tk.Canvas(master)
+        self.canvas.grid(row=row, column=columns[0], sticky=(tk.N+tk.W+tk.E+tk.S))
 
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.scrollbar.grid(column=1, sticky=(tk.N+tk.S))
+        self.scrollbar = ttk.Scrollbar(master, orient="vertical", command=self.canvas.yview)
+        self.scrollbar.grid(row=row, column=columns[1], sticky=(tk.N+tk.S))
 
         self.frame = ttk.Frame(self.canvas)
 
