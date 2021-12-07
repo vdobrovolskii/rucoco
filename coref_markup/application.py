@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import *
 
 from coref_markup.const import *
+from coref_markup.label_panel import LabelPanel
 from coref_markup.markup import Span, Markup
 from coref_markup.markup_text import MarkupText
 from coref_markup.markup_label import MarkupLabel
@@ -16,8 +17,6 @@ from coref_markup.settings import Settings
 from coref_markup import utils
 
 
-# TODO: scroll entities
-# TODO: config (annotator name, what else?)
 # TODO: span and entity texts in error messages (custom Exception class to pass data)
 # TODO: remove magic values
 # TODO: docstrings
@@ -47,8 +46,6 @@ class Application(ttk.Frame):
         """
         Only making the following visible as instance attributes:
             self.panel
-            self.panel_container
-            self.panel_scrollbar
             self.status_bar
             self.text_box
             self.label_menu
@@ -67,26 +64,9 @@ class Application(ttk.Frame):
 
         text_menu = tk.Menu(self, tearoff=0)
 
-        panel_container = tk.Canvas(self)
-        panel_container.grid(row=0, column=1, sticky=(tk.N+tk.W+tk.E+tk.S))
-        panel_scrollbar = ttk.Scrollbar(self, orient="vertical", command=panel_container.yview)
-        panel_scrollbar.grid(row=0, column=2, sticky=(tk.N+tk.S))
-        panel = ttk.Frame(panel_container)
-        panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        panel.bind("<MouseWheel>", self.mouse_wheel_handler)
-        panel.bind_class("Label", "<MouseWheel>", self.mouse_wheel_handler)
-        panel_container.bind("<MouseWheel>", self.mouse_wheel_handler)
-        panel.bind(
-            "<Configure>",
-            lambda _: panel_container.configure(
-                scrollregion=panel_container.bbox("all")
-            )
-        )
-        panel_container.configure(yscrollcommand=panel_scrollbar.set)
-        panel_container.create_window((0, 0), window=panel, anchor="nw")
-
-        entity_panel_label = tk.Label(panel, text="Entities", width=self.LABEL_WIDTH)
-        entity_panel_label.grid(row=0, sticky=tk.N)
+        panel = LabelPanel(self, self.LABEL_WIDTH)
+        panel.grid(row=0, column=1, sticky=(tk.N+tk.S+tk.W+tk.E))
+        panel.frame.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
 
         label_menu = tk.Menu(self, tearoff=0)
         label_menu.add_command(label="Merge", command=self.merge)
@@ -150,8 +130,6 @@ class Application(ttk.Frame):
 
         # Registering attributes
         self.panel = panel
-        self.panel_container = panel_container
-        self.panel_scrollbar = panel_scrollbar
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
@@ -191,6 +169,9 @@ class Application(ttk.Frame):
             self.master.destroy()
 
     def mouse_handler_label(self, event: tk.Event, entity_idx: int):
+        if event.widget.cget("state") == tk.DISABLED:
+            return
+
         if self.text_box.selection_exists():
             self.add_span_to_entity(self.text_box.get_selection_indices(), entity_idx)
             self.text_box.clear_selection()
@@ -219,6 +200,9 @@ class Application(ttk.Frame):
                             underline: bool = True,
                             recursive: bool = True,
                             relation: Optional[str] = None):
+        if event.widget.cget("state") == tk.DISABLED:
+            return
+
         if event.type is tk.EventType.Enter:
             for span in self.markup.get_spans(entity_idx):
                 self.text_box.add_extra_highlight(span, underline=underline)
@@ -235,11 +219,6 @@ class Application(ttk.Frame):
             for parent_entity_idx in self.markup.get_parent_entities(entity_idx):
                 self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False, relation="parent")
 
-    def mouse_wheel_handler(self, event: tk.Event):
-        """ Only scrolling if the scrollbar is not disabled (state() returns an empty tuple """
-        if not self.panel_scrollbar.state():
-            self.panel_container.yview_scroll(-1 * event.delta, "units")
-
     def open_file_handler(self):
         if (self.markup
                 and self.modified
@@ -253,6 +232,9 @@ class Application(ttk.Frame):
             self.open_file(path)
 
     def popup_label_menu(self, event: tk.Event, entity_idx: int):
+        if event.widget.cget("state") == tk.DISABLED:
+            return
+
         states = {
             "Merge": "disabled",
             "Set as parent": "disabled",
@@ -296,7 +278,8 @@ class Application(ttk.Frame):
                                        command=partial(self.delete_span, span=span))
             self.text_menu.add_command(label="Unlink span",
                                        command=partial(self.unlink_span, span=span))
-
+            # self.text_menu.add_command(label="Update span boundaries",
+            #                            command=partial(self.update_span_boundaries, span=span))
         self.text_menu.update()
 
         self.render_menu(self.text_menu, event.x_root, event.y_root)
@@ -450,15 +433,14 @@ class Application(ttk.Frame):
         return self.entity2color[entity_idx]
 
     def render_entities(self):
-        for row in range(1, self.panel.grid_size()[1]):
-            for child in self.panel.grid_slaves(row=row):
-                child.destroy()
+        for label in self.panel.get_labels(start_row=1):
+            label.destroy()
         self.text_box.clear_tags()
 
         entities = sorted(self.markup.get_entities(), key=lambda idx: (self.markup.has_children(idx), idx))
         n_multientities = sum(int(self.markup.has_children(idx)) for idx in entities)
         if n_multientities:
-            label = tk.Label(self.panel, text="Parent Entities")
+            label = tk.Label(self.panel.frame, text="Parent Entities")
             label.grid(row=len(entities) - n_multientities + 1)
 
         for position, entity_idx in enumerate(entities):
@@ -467,7 +449,7 @@ class Application(ttk.Frame):
                 self.text_box.add_highlight(span, entity_idx, color)
             label_text = self.text_box.get_entity_label(entity_idx, self.LABEL_WIDTH)
 
-            label = MarkupLabel(self.panel, text=label_text, background=color, borderwidth=0, relief="solid")
+            label = MarkupLabel(self.panel.frame, text=label_text, background=color, borderwidth=0, relief="solid")
             label.grid(row=position + 1 + int(self.markup.has_children(entity_idx)), sticky=tk.W)
             label.bind("<Enter>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
             label.bind("<Leave>", partial(self.mouse_hover_handler, entity_idx=entity_idx))
