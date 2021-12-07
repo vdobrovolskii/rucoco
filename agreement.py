@@ -41,7 +41,7 @@ if __name__ == "__main__":
     print()
     total_recall, total_r_weight = .0, .0
     total_precision, total_p_weight = .0, .0
-    for file in common_files:
+    for file in sorted(common_files):
         a = read_markup_dict(os.path.join(args.a, file))
         b = read_markup_dict(os.path.join(args.b, file))
         assert a["text"] == b["text"]

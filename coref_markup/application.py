@@ -71,14 +71,15 @@ class Application(ttk.Frame):
         panel_scrollbar.grid(row=0, column=2, sticky=(tk.N+tk.S))
         panel = ttk.Frame(panel_container)
         panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        panel.bind("<MouseWheel>", lambda event: panel_container.yview_scroll(-1 * event.delta, "units"))
+        mouse_wheel_handler = lambda event: panel_container.yview_scroll(-1 * event.delta, "units")
+        panel.bind("<MouseWheel>", mouse_wheel_handler)
+        panel.bind_class("Label", "<MouseWheel>", mouse_wheel_handler)
         panel.bind(
             "<Configure>",
             lambda _: panel_container.configure(
                 scrollregion=panel_container.bbox("all")
             )
         )
-        # panel.grid(sticky=(tk.N+tk.W+tk.E+tk.S))
         panel_container.configure(yscrollcommand=panel_scrollbar.set)
         panel_container.create_window((0, 0), window=panel, anchor="nw")
 
@@ -283,14 +284,16 @@ class Application(ttk.Frame):
                                             command=partial(self.new_entity, span=span))
         for span in spans:
             span_text = self.text_box.get(*span)
-            self.text_menu.add_command(label=f"Delete \"{span_text}\"",
+            self.text_menu.add_separator()
+            self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
+            self.text_menu.add_command(label="Delete span",
                                        command=partial(self.delete_span, span=span))
+            self.text_menu.add_command(label="Unlink span",
+                                       command=partial(self.unlink_span, span=span))
+
         self.text_menu.update()
 
-        try:
-            self.render_menu(self.text_menu, event.x_root, event.y_root)
-        finally:
-            self.text_menu.grab_release()
+        self.render_menu(self.text_menu, event.x_root, event.y_root)
 
     def save_file_handler(self):
         if self.filename is None or not self.filename.endswith(".json"):
@@ -419,6 +422,16 @@ class Application(ttk.Frame):
             self.render_entities()
 
     @undoable
+    def unlink_span(self, span: Span):
+        removed_entity = self.markup.delete_span(span)
+        if removed_entity is not None:
+            self.color_stack.append(self.entity2color.pop(removed_entity))
+            if self.selected_entity == removed_entity:
+                self.selected_entity = None
+        self.markup.new_entity(span)
+        self.render_entities()
+
+    @undoable
     def unset_parent(self):
         self.markup.remove_child_entity(self.selected_entity, self.popup_menu_entity)
         self.render_entities()
@@ -464,7 +477,7 @@ class Application(ttk.Frame):
     def render_menu(self, menu: tk.Menu, x: int, y: int):
         w, h = menu.winfo_reqwidth(), menu.winfo_reqheight()
         h //= menu.index("end") + 1
-        menu.tk_popup(x + w // 2 * int(not MAC), y + h // 2 * int(not MAC), 0)
+        menu.post(x + w // 2 * int(not MAC), y + h // 2 * int(not MAC))
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
