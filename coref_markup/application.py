@@ -47,6 +47,8 @@ class Application(ttk.Frame):
         """
         Only making the following visible as instance attributes:
             self.panel
+            self.panel_container
+            self.panel_scrollbar
             self.status_bar
             self.text_box
             self.label_menu
@@ -71,9 +73,9 @@ class Application(ttk.Frame):
         panel_scrollbar.grid(row=0, column=2, sticky=(tk.N+tk.S))
         panel = ttk.Frame(panel_container)
         panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
-        mouse_wheel_handler = lambda event: panel_container.yview_scroll(-1 * event.delta, "units")
-        panel.bind("<MouseWheel>", mouse_wheel_handler)
-        panel.bind_class("Label", "<MouseWheel>", mouse_wheel_handler)
+        panel.bind("<MouseWheel>", self.mouse_wheel_handler)
+        panel.bind_class("Label", "<MouseWheel>", self.mouse_wheel_handler)
+        panel_container.bind("<MouseWheel>", self.mouse_wheel_handler)
         panel.bind(
             "<Configure>",
             lambda _: panel_container.configure(
@@ -148,6 +150,8 @@ class Application(ttk.Frame):
 
         # Registering attributes
         self.panel = panel
+        self.panel_container = panel_container
+        self.panel_scrollbar = panel_scrollbar
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
@@ -231,6 +235,11 @@ class Application(ttk.Frame):
             for parent_entity_idx in self.markup.get_parent_entities(entity_idx):
                 self.mouse_hover_handler(event, parent_entity_idx, underline=False, recursive=False, relation="parent")
 
+    def mouse_wheel_handler(self, event: tk.Event):
+        """ Only scrolling if the scrollbar is not disabled (state() returns an empty tuple """
+        if not self.panel_scrollbar.state():
+            self.panel_container.yview_scroll(-1 * event.delta, "units")
+
     def open_file_handler(self):
         if (self.markup
                 and self.modified
@@ -264,10 +273,7 @@ class Application(ttk.Frame):
         for key, value in states.items():
             self.label_menu.entryconfigure(key, state=value)
 
-        try:
-            self.render_menu(self.label_menu, event.x_root, event.y_root)
-        finally:
-            self.label_menu.grab_release()
+        self.render_menu(self.label_menu, event.x_root, event.y_root)
 
     def popup_text_menu(self, event: tk.Event):
         index = self.text_box.index(f"@{event.x},{event.y}")
