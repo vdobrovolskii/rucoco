@@ -31,6 +31,10 @@ class LabelPanel:
         entity_panel_label = tk.Label(self.frame, text="Entities", width=label_width)
         entity_panel_label.grid(row=0, sticky=tk.N)
 
+    def bind(self, *args, **kwargs):
+        self.canvas.bind(*args, **kwargs)
+        self.frame.bind(*args, **kwargs)
+
     def get_labels(self, start_row: int = 0, only_markup_labels: bool = False) -> Iterator[tk.Label]:
         cls = tk.Label if not only_markup_labels else MarkupLabel
         for row in range(start_row, self.frame.grid_size()[1]):

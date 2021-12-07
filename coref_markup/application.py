@@ -65,7 +65,7 @@ class Application(ttk.Frame):
         text_menu = tk.Menu(self, tearoff=0)
 
         panel = LabelPanel(self, label_width=self.LABEL_WIDTH, row=0, columns=(1, 2))
-        panel.frame.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
+        panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
 
         label_menu = tk.Menu(self, tearoff=0)
         label_menu.add_command(label="Merge", command=self.merge)
