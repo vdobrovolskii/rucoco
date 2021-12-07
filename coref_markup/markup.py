@@ -107,6 +107,9 @@ class Markup:
     def get_entities(self) -> Iterable[int]:
         return (idx for idx, entity in enumerate(self._entities) if entity is not None)
 
+    def get_entity(self, span: Span) -> int:
+        return self._span2entity[span].idx
+
     def get_parent_entities(self, entity_idx: int) -> Iterable[int]:
         return (parent.idx for parent in self._entities[entity_idx].parents)
 

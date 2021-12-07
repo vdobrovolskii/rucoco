@@ -28,12 +28,13 @@ class MarkupText(ScrolledText):
         self.tag2entity[tag] = entity_idx
         self.entity2spans[entity_idx].append(span)
 
-    def add_extra_highlight(self, span: Span, underline: bool = True):
+    def add_extra_highlight(self, span: Span, underline: bool = True, grey: bool = False):
         if span not in self.extra_highlights:
             tag = f"e{span}"
             color = self.tag_cget(tag, "background")
             self.extra_highlights[span] = color
-            self.tag_configure(tag, background=utils.multiply_color(color, 1.2), underline=underline)
+            new_color = utils.desaturate_color(color, 1.0) if grey else utils.multiply_color(color, 1.2)
+            self.tag_configure(tag, background=new_color, underline=underline)
 
     def clear_selection(self):
         self.tag_remove("sel", "1.0", tk.END)

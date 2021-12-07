@@ -37,6 +37,14 @@ DARK_COLORS = [
 HUE_STEPS = 16
 
 
+def desaturate_color(rgb: str, factor: float) -> str:
+    r, g, b = (int(value, base=16) for value in (rgb[1:3], rgb[3:5], rgb[5:7]))
+    luma = 0.3 * r + 0.6 * g + 0.1 * b
+    values = (int(value + factor * (luma - value)) for value in (r, g, b))
+    values = (min(255, value) for value in values)
+    return ("#" + "{:02x}" * 3).format(*values)
+
+
 def get_colors(dark_mode: bool) -> Iterable[str]:
     yield from DARK_COLORS if dark_mode else COLORS
 

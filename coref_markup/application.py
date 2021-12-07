@@ -277,8 +277,8 @@ class Application(ttk.Frame):
                                        command=partial(self.delete_span, span=span))
             self.text_menu.add_command(label="Unlink span",
                                        command=partial(self.unlink_span, span=span))
-            # self.text_menu.add_command(label="Update span boundaries",
-            #                            command=partial(self.update_span_boundaries, span=span))
+            self.text_menu.add_command(label="Update span boundaries",
+                                       command=partial(self.update_span_boundaries, span=span))
         self.text_menu.update()
 
         self.render_menu(self.text_menu, event.x_root, event.y_root)
@@ -399,6 +399,17 @@ class Application(ttk.Frame):
             self.render_entities()
 
     @undoable
+    def replace_span(self, span: Span, new_span: Span):
+        if span != new_span:
+            entity_idx = self.markup.get_entity(span)
+            try:
+                self.markup.add_span_to_entity(new_span, entity_idx)
+                self.markup.delete_span(span)
+                self.render_entities()
+            except RuntimeError as e:
+                self.set_status(e.args[0])
+
+    @undoable
     def set_parent(self):
         self.markup.add_child_entity(self.selected_entity, self.popup_menu_entity)
         self.render_entities()
@@ -418,6 +429,24 @@ class Application(ttk.Frame):
                 self.selected_entity = None
         self.markup.new_entity(span)
         self.render_entities()
+
+    def update_span_boundaries(self, span: Span):
+        for label in self.panel.get_labels(only_markup_labels=True):
+            label.disable()
+        self.text_box.add_extra_highlight(span, underline=False, grey=True)
+
+        def new_handler(event: tk.Event):
+            if self.text_box.selection_exists():
+                new_span = self.text_box.get_selection_indices()
+                self.text_box.clear_selection()
+                self.replace_span(span, new_span)
+            else:
+                for label in self.panel.get_labels(only_markup_labels=True):
+                    label.enable()
+                self.text_box.remove_extra_highlight(span)
+            self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
+
+        self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", new_handler)
 
     @undoable
     def unset_parent(self):
