@@ -260,16 +260,21 @@ class Application(ttk.Frame):
             return
 
         self.text_menu.delete(0, "end")
+        selected_span_text = None
         if self.text_box.selection_exists():
-            span = self.text_box.get_selection_indices()
-            if not self.markup.span_exists(span):
-                span_text = self.text_box.get(*span)
-                self.text_menu.add_command(label=f"Add \"{span_text}\"",
-                                            command=partial(self.new_entity, span=span))
+            selected_span = self.text_box.get_selection_indices()
+            if not self.markup.span_exists(selected_span):
+                selected_span_text = self.text_box.get(*selected_span)
+                self.text_menu.add_command(label=f"Add \"{selected_span_text}\"",
+                                            command=partial(self.new_entity, span=selected_span))
         for span in spans:
             span_text = self.text_box.get(*span)
             self.text_menu.add_separator()
             self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
+            if selected_span_text is not None:
+                self.text_menu.add_command(label=f"Link with «{selected_span_text}»",
+                                           command=partial(self.link_span_to_existing_span,
+                                                           new_span=selected_span, existing_span=span))
             self.text_menu.add_command(label="Delete span",
                                        command=partial(self.delete_span, span=span))
             self.text_menu.add_command(label="Unlink span",
@@ -329,6 +334,11 @@ class Application(ttk.Frame):
             if self.selected_entity == removed_entity:
                 self.selected_entity = None
         self.render_entities()
+
+    def link_span_to_existing_span(self, new_span: Span, existing_span: Span):
+        entity_idx = self.markup.get_entity(existing_span)
+        self.add_span_to_entity(new_span, entity_idx)
+        self.text_box.clear_selection()  # TODO: move out of here
 
     @undoable
     def merge(self):
