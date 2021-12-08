@@ -251,13 +251,15 @@ class Application(ttk.Frame):
 
         self.label_menu.add_command(label="Delete", command=self.delete_entity)
 
-        self.render_menu(self.label_menu, event.x_root, event.y_root)
+        self.label_menu.post(event.x_root, event.y_root)
 
     def popup_text_menu(self, event: tk.Event):
         index = self.text_box.index(f"@{event.x},{event.y}")
         spans = list(self.text_box.get_spans_at_index(index))
         if not self.text_box.selection_exists() and not spans:
             return
+
+        n_sections = 0
 
         self.text_menu.delete(0, "end")
         selected_span_text = None
@@ -267,9 +269,12 @@ class Application(ttk.Frame):
                 selected_span_text = self.text_box.get(*selected_span)
                 self.text_menu.add_command(label=f"Add \"{selected_span_text}\"",
                                             command=partial(self.new_entity, span=selected_span))
+                n_sections += 1
+
         for span in spans:
             span_text = self.text_box.get(*span)
-            self.text_menu.add_separator()
+            if n_sections > 0:
+                self.text_menu.add_separator()
             self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
             if selected_span_text is not None:
                 self.text_menu.add_command(label=f"Link with «{selected_span_text}»",
@@ -281,9 +286,11 @@ class Application(ttk.Frame):
                                        command=partial(self.unlink_span, span=span))
             self.text_menu.add_command(label="Update span boundaries",
                                        command=partial(self.update_span_boundaries, span=span))
+            n_sections += 1
+
         self.text_menu.update()
 
-        self.render_menu(self.text_menu, event.x_root, event.y_root)
+        self.text_menu.post(event.x_root, event.y_root)
 
     def save_file_handler(self):
         if self.filename is None or not self.filename.endswith(".json"):
@@ -513,11 +520,6 @@ class Application(ttk.Frame):
 
         if self.selected_entity is not None:
             self.entity2label[self.selected_entity].select()
-
-    def render_menu(self, menu: tk.Menu, x: int, y: int):
-        w, h = menu.winfo_reqwidth(), menu.winfo_reqheight()
-        h //= menu.index("end") + 1
-        menu.post(x + w // 2 * int(not MAC), y + h // 2 * int(not MAC))
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
