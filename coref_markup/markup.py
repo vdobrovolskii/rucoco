@@ -101,7 +101,7 @@ class Markup:
     def has_children(self, entity_idx: int) -> bool:
         return len(self._entities[entity_idx].children) > 0
 
-    def get_child_entities(self, entity_idx: int, recursive: bool = True) -> Iterable[int]:
+    def get_child_entities(self, entity_idx: int) -> Iterable[int]:
         return (child.idx for child in self._entities[entity_idx].children)
 
     def get_entities(self) -> Iterable[int]:

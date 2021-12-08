@@ -68,10 +68,6 @@ class Application(ttk.Frame):
         panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
 
         label_menu = tk.Menu(self, tearoff=0)
-        label_menu.add_command(label="Merge", command=self.merge)
-        label_menu.add_command(label="Set as parent", command=self.set_parent)
-        label_menu.add_command(label="Unset parent", command=self.unset_parent)
-        label_menu.add_command(label="Delete", command=self.delete_entity)
 
         # Menu
         menubar = tk.Menu()
@@ -234,25 +230,26 @@ class Application(ttk.Frame):
         if event.widget.cget("state") == tk.DISABLED:
             return
 
-        states = {
-            "Merge": "disabled",
-            "Set as parent": "disabled",
-            "Unset parent": "disabled",
-            "Delete": "active"
-        }
         self.popup_menu_entity = entity_idx
+
+        self.label_menu.delete(0, "end")
 
         if self.selected_entity is not None and self.selected_entity != self.popup_menu_entity:
 
-            states["Merge"] = "active"
+            self.label_menu.add_command(label="Merge", command=self.merge)
 
             if self.markup.is_child_of(self.selected_entity, self.popup_menu_entity):
-                states["Unset parent"] = "active"
+                self.label_menu.add_command(label="Unset parent of selected", command=self.unset_parent)
+            elif self.markup.is_child_of(self.popup_menu_entity, self.selected_entity):
+                self.label_menu.add_command(label="Unset child of selected", command=self.unset_child)
             else:
-                states["Set as parent"] = "active"
+                self.label_menu.add_command(label="Set as parent of selected", command=self.set_parent)
+                self.label_menu.add_command(label="Set as child of selected", command=self.set_child)
 
-        for key, value in states.items():
-            self.label_menu.entryconfigure(key, state=value)
+        if self.markup.has_children(self.popup_menu_entity):
+            self.label_menu.add_command(label="Remove all children", command=self.unset_all_children)
+
+        self.label_menu.add_command(label="Delete", command=self.delete_entity)
 
         self.render_menu(self.label_menu, event.x_root, event.y_root)
 
@@ -410,6 +407,11 @@ class Application(ttk.Frame):
                 self.set_status(e.args[0])
 
     @undoable
+    def set_child(self):
+        self.markup.add_child_entity(self.popup_menu_entity, self.selected_entity)
+        self.render_entities()
+
+    @undoable
     def set_parent(self):
         self.markup.add_child_entity(self.selected_entity, self.popup_menu_entity)
         self.render_entities()
@@ -447,6 +449,18 @@ class Application(ttk.Frame):
             self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
 
         self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", new_handler)
+
+    @undoable
+    def unset_all_children(self):
+        children = list(self.markup.get_child_entities(self.popup_menu_entity))
+        for child_entity in children:
+            self.markup.remove_child_entity(child_entity, self.popup_menu_entity)
+        self.render_entities()
+
+    @undoable
+    def unset_child(self):
+        self.markup.remove_child_entity(self.popup_menu_entity, self.selected_entity)
+        self.render_entities()
 
     @undoable
     def unset_parent(self):
