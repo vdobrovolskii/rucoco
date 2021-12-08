@@ -200,11 +200,11 @@ class Application(ttk.Frame):
 
         if event.type is tk.EventType.Enter:
             for span in self.markup.get_spans(entity_idx):
-                self.text_box.add_extra_highlight(span, underline=underline)
+                self.text_box.emphasize_highlight(span, underline=underline)
             self.entity2label[entity_idx].enter(relation=relation)
         else:
             for span in self.markup.get_spans(entity_idx):
-                self.text_box.remove_extra_highlight(span)
+                self.text_box.restore_highlight(span)
             self.entity2label[entity_idx].leave()
 
         if recursive:
@@ -452,7 +452,7 @@ class Application(ttk.Frame):
     def update_span_boundaries(self, span: Span):
         for label in self.panel.get_labels(only_markup_labels=True):
             label.disable()
-        self.text_box.add_extra_highlight(span, underline=False, grey=True)
+        self.text_box.dim_highlight(span)
 
         def new_handler(event: tk.Event):
             if self.text_box.selection_exists():
@@ -462,7 +462,7 @@ class Application(ttk.Frame):
             else:
                 for label in self.panel.get_labels(only_markup_labels=True):
                     label.enable()
-                self.text_box.remove_extra_highlight(span)
+                self.text_box.restore_highlight(span)
             self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
 
         self.text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", new_handler)

@@ -11,6 +11,69 @@ from coref_markup.settings import Settings
 FONT_TYPE = "TkFixedFont"
 
 
+class Tag:
+    def __init__(self, text_box: tk.Text, span: Span, color: str):
+        self.text_box = text_box
+
+        self.span = span
+        self.tag_idx = f"e{span}"
+
+        self._mode = "normal"
+
+        self._update_colors(color)
+        self._add_to_text_widget()
+
+    def dim(self):
+        if self._mode != "dimmed":
+            self._mode = "dimmed"
+            self._update()
+
+    def emphasize(self, underline=True):
+        if self._mode != "emphasized":
+            self._mode = "emphasized"
+            appearance = self._appearance[self._mode]
+            if underline:
+                appearance["underline"] = True
+            self._update()
+
+    def fix_overlapping(self, self_in_self: int):
+        self.text_box.tag_raise(self.tag_idx)
+        if self_in_self:
+            current_color = self._appearance["normal"]["backround"]
+            new_color = utils.multiply_color(current_color, max(0, 1 - 0.15 * self_in_self))
+            self._update_colors(new_color)
+            self._update()
+
+    def restore(self):
+        if self._mode != "normal":
+            self._mode = "normal"
+            self._update()
+
+    def _add_to_text_widget(self):
+        self.text_box.tag_add(self.tag_idx, *self.span)
+        self._update()
+
+    def _update(self):
+        appearance = self._appearance[self._mode]
+        self.text_box.tag_configure(self.tag_idx, **appearance)
+
+    def _update_colors(self, normal_color: str):
+        self._appearance = {
+            "normal": {
+                "background": normal_color,
+                "underline": ""
+            },
+            "dimmed": {
+                "background": utils.desaturate_color(normal_color, 1.0),
+                "underline": ""
+            },
+            "emphasized": {
+                "background": utils.multiply_color(normal_color, 1.2),
+                "underline": None
+            }
+        }
+
+
 class MarkupText(ScrolledText):
     def __init__(self, *, settings: Settings, **kwargs):
         super().__init__(**kwargs, font=(FONT_TYPE, settings.text_box_font_size))
@@ -21,20 +84,11 @@ class MarkupText(ScrolledText):
         self.settings = settings
 
     def add_highlight(self, span: Span, entity_idx: int, color: str):
-        tag = f"e{span}"
-        self.tag_add(tag, *span)
-        self.tag_configure(tag, background=color)
+        tag = Tag(self, span, color)
 
-        self.tag2entity[tag] = entity_idx
+        self.highlights[span] = tag
         self.entity2spans[entity_idx].append(span)
-
-    def add_extra_highlight(self, span: Span, underline: bool = True, grey: bool = False):
-        if span not in self.extra_highlights:
-            tag = f"e{span}"
-            color = self.tag_cget(tag, "background")
-            self.extra_highlights[span] = color
-            new_color = utils.desaturate_color(color, 1.0) if grey else utils.multiply_color(color, 1.2)
-            self.tag_configure(tag, background=new_color, underline=underline)
+        self.tag2entity[tag.tag_idx] = entity_idx
 
     def clear_selection(self):
         self.tag_remove("sel", "1.0", tk.END)
@@ -43,8 +97,8 @@ class MarkupText(ScrolledText):
         for tag in self.tag_names():
             self.tag_delete(tag)
         self.entity2spans: Dict[int, List[Span]] = defaultdict(list)
+        self.highlights: Dict[Span, Tag] = {}
         self.tag2entity: Dict[str, int] = {}
-        self.extra_highlights: Dict[Span, str] = {}  # span -> original color
 
     def convert_char_to_tk(self, span: Tuple[int, int]) -> Span:
         """ Converts char offset notation to tkinter internal notation. """
@@ -59,6 +113,12 @@ class MarkupText(ScrolledText):
         if index == "1.0":
             return 0
         return self.count("1.0", index, "chars")[0]
+
+    def dim_highlight(self, span: Span):
+        self.highlights[span].dim()
+
+    def emphasize_highlight(self, span: Span, underline: bool = True):
+        self.highlights[span].emphasize(underline=underline)
 
     def font_decrease(self):
         if self.settings.text_box_font_size > 8:
@@ -94,22 +154,11 @@ class MarkupText(ScrolledText):
                 sibling_tags = (tag for tag in tags if self.tag2entity[tag] == entity_idx)
                 enclosing_tags = (tag for tag in sibling_tags if self.compare(span[1], "<=", self.tag_ranges(tag)[1]))
                 self_in_self = sum(1 for _ in enclosing_tags) - 1
-                tag = f"e{span}"
-                self.tag_raise(tag)
-                self.tag_configure(tag, background=utils.multiply_color(self.tag_cget(tag, "background"),
-                                                                        max(0, 1 - 0.15 * self_in_self)))
+                self.highlights[span].fix_overlapping(self_in_self)
         self.tag_raise("sel")  # selection to be above any other tag
 
-    def remove_extra_highlight(self, span: Span):
-        if span in self.extra_highlights:
-            tag = f"e{span}"
-            color = self.extra_highlights[span]
-
-            # tk uses "" as the absense of value
-            # if underline=False, then this will conflict with other tags underline=True
-            self.tag_configure(tag, background=color, underline="")
-
-            del self.extra_highlights[span]
+    def restore_highlight(self, span: Span):
+        self.highlights[span].restore()
 
     def selection_exists(self) -> bool:
         return len(self.tag_ranges("sel")) > 0
