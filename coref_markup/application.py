@@ -519,6 +519,7 @@ class Application(ttk.Frame):
         self.text_box.fix_overlapping_highlights()
 
         if self.selected_entity is not None:
+            self.selected_entity = self.selected_entity  # trigger redrawing of entity selection
             self.entity2label[self.selected_entity].select()
 
     def set_status(self, message: str, duration: int = 5000):
