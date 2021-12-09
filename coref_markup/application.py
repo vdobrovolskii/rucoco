@@ -37,8 +37,8 @@ class Application(ttk.Frame):
         self.markup = Markup()
         self.settings = Settings()
 
-        self.reset_state()
         self.build_widgets()
+        self.reset_state()
 
     # Initializers #####################################################################################################
 
@@ -204,7 +204,7 @@ class Application(ttk.Frame):
             self.entity2label[entity_idx].enter(relation=relation)
         else:
             for span in self.markup.get_spans(entity_idx):
-                self.text_box.restore_highlight(span)
+                self.text_box.deemphasize_highlight(span)
             self.entity2label[entity_idx].leave()
 
         if recursive:
@@ -573,3 +573,22 @@ class Application(ttk.Frame):
         else:
             self._filename = value
             self.master.title(os.path.split(value)[1])
+
+    @property
+    def selected_entity(self) -> Optional[int]:
+        return self._selected_entity
+
+    @selected_entity.setter
+    def selected_entity(self, value: Optional[int]):
+        if value is None:
+            self._selected_entity = None
+            self.text_box.restore_all_highlights()
+        else:
+            self._selected_entity = value
+            for entity_idx in self.markup.get_entities():
+                if entity_idx != value:
+                    for span in self.markup.get_spans(entity_idx):
+                        self.text_box.dim_highlight(span)
+                else:
+                    for span in self.markup.get_spans(entity_idx):
+                        self.text_box.restore_highlight(span)

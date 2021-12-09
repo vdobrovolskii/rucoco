@@ -18,22 +18,28 @@ class Tag:
         self.span = span
         self.tag_idx = f"e{span}"
 
-        self._mode = "normal"
+        self._dimmed = False
+        self._emphasized = False
 
         self._update_colors(color)
         self._add_to_text_widget()
 
     def dim(self):
-        if self._mode != "dimmed":
-            self._mode = "dimmed"
+        if not self._dimmed:
+            self._dimmed = True
+            self._update()
+
+    def deemphasize(self):
+        if self._emphasized:
+            self._emphasized = False
+            self._appearance["emphasized"]["underline"] = None
             self._update()
 
     def emphasize(self, underline=True):
-        if self._mode != "emphasized":
-            self._mode = "emphasized"
-            appearance = self._appearance[self._mode]
+        if not self._emphasized:
+            self._emphasized = True
             if underline:
-                appearance["underline"] = True
+                self._appearance["emphasized"]["underline"] = True
             self._update()
 
     def fix_overlapping(self, self_in_self: int):
@@ -45,8 +51,8 @@ class Tag:
             self._update()
 
     def restore(self):
-        if self._mode != "normal":
-            self._mode = "normal"
+        if self._dimmed:
+            self._dimmed = False
             self._update()
 
     def _add_to_text_widget(self):
@@ -54,7 +60,13 @@ class Tag:
         self._update()
 
     def _update(self):
-        appearance = self._appearance[self._mode]
+        if self._emphasized:
+            mode = "emphasized"
+        elif self._dimmed:
+            mode = "dimmed"
+        else:
+            mode = "normal"
+        appearance = self._appearance[mode]
         self.text_box.tag_configure(self.tag_idx, **appearance)
 
     def _update_colors(self, normal_color: str):
@@ -114,6 +126,9 @@ class MarkupText(ScrolledText):
             return 0
         return self.count("1.0", index, "chars")[0]
 
+    def deemphasize_highlight(self, span: Span):
+        self.highlights[span].deemphasize()
+
     def dim_highlight(self, span: Span):
         self.highlights[span].dim()
 
@@ -156,6 +171,10 @@ class MarkupText(ScrolledText):
                 self_in_self = sum(1 for _ in enclosing_tags) - 1
                 self.highlights[span].fix_overlapping(self_in_self)
         self.tag_raise("sel")  # selection to be above any other tag
+
+    def restore_all_highlights(self):
+        for span in self.highlights:
+            self.restore_highlight(span)
 
     def restore_highlight(self, span: Span):
         self.highlights[span].restore()
