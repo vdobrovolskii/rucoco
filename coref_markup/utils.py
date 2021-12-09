@@ -15,8 +15,7 @@ COLORS = [
     "#cab2d6",
     "#bc80bd",
     "#fb9a99",
-    "#e2844e",
-    "#cacaca"
+    "#e2844e"
 ]
 
 DARK_COLORS = [
