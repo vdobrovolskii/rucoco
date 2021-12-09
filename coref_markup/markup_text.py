@@ -45,7 +45,7 @@ class Tag:
     def fix_overlapping(self, self_in_self: int):
         self.text_box.tag_raise(self.tag_idx)
         if self_in_self:
-            current_color = self._appearance["normal"]["backround"]
+            current_color = self._appearance["normal"]["background"]
             new_color = utils.multiply_color(current_color, max(0, 1 - 0.15 * self_in_self))
             self._update_colors(new_color)
             self._update()
