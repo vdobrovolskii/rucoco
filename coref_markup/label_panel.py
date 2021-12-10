@@ -6,13 +6,13 @@ from coref_markup.markup_label import MarkupLabel
 
 
 class LabelPanel:
-    def __init__(self, master: tk.Widget, *, label_width: int, row: int, columns: Tuple[int, int]):
+    def __init__(self, master: tk.Widget, *, label_width: int, row: int, rowspan: int, columns: Tuple[int, int]):
 
         self.canvas = tk.Canvas(master)
-        self.canvas.grid(row=row, column=columns[0], sticky=(tk.N+tk.W+tk.E+tk.S))
+        self.canvas.grid(row=row, rowspan=rowspan, column=columns[0], sticky=(tk.N+tk.W+tk.E+tk.S))
 
         self.scrollbar = ttk.Scrollbar(master, orient="vertical", command=self.canvas.yview)
-        self.scrollbar.grid(row=row, column=columns[1], sticky=(tk.N+tk.S))
+        self.scrollbar.grid(row=row, rowspan=rowspan, column=columns[1], sticky=(tk.N+tk.S))
 
         self.frame = ttk.Frame(self.canvas)
 

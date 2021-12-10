@@ -9,6 +9,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import *
 
 from coref_markup.const import *
+from coref_markup.find_bar import FindBar
 from coref_markup.label_panel import LabelPanel
 from coref_markup.markup import Span, Markup
 from coref_markup.markup_text import MarkupText
@@ -45,6 +46,7 @@ class Application(ttk.Frame):
     def build_widgets(self):
         """
         Only making the following visible as instance attributes:
+            self.find_bar
             self.panel
             self.status_bar
             self.text_box
@@ -55,16 +57,23 @@ class Application(ttk.Frame):
         self.grid(row=0, column=0, sticky=(tk.N + tk.W + tk.E + tk.S))
 
         status_bar = ttk.Label(self)
-        status_bar.grid(row=1, column=0, columnspan=2, sticky=(tk.N, tk.W))
+        status_bar.grid(row=2, column=0, columnspan=2, sticky=(tk.N, tk.W))
 
-        text_box = MarkupText(settings=self.settings, master=self, highlightthickness=0, wrap="word")
+        find_bar = FindBar(self,
+            entry_width=self.LABEL_WIDTH,
+            padx=5,
+            cancel_command=self.toggle_find_bar,
+            find_command=self.find_in_text
+        )
+
+        text_box = MarkupText(settings=self.settings, master=self, highlightthickness=0, wrap="word", exportselection=0)
         text_box.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_text)
         text_box.bind(f"<Button-{RIGHT_MOUSECLICK}>", self.popup_text_menu)
-        text_box.grid(row=0, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
+        text_box.grid(row=1, column=0, sticky=(tk.N+tk.W+tk.E+tk.S))
 
         text_menu = tk.Menu(self, tearoff=0)
 
-        panel = LabelPanel(self, label_width=self.LABEL_WIDTH, row=0, columns=(1, 2))
+        panel = LabelPanel(self, label_width=self.LABEL_WIDTH, row=0, rowspan=2, columns=(1, 2))
         panel.bind(f"<ButtonRelease-{LEFT_MOUSECLICK}>", self.mouse_handler_panel)
 
         label_menu = tk.Menu(self, tearoff=0)
@@ -79,6 +88,7 @@ class Application(ttk.Frame):
         edit_menu = tk.Menu(menubar, tearoff=0)
         edit_menu.add_command(label="Undo", command=self.undo, accelerator="Ctrl+z")
         edit_menu.add_command(label="Redo", command=self.redo, accelerator="Ctrl+y")
+        edit_menu.add_command(label="Find...", command=self.toggle_find_bar, accelerator="Ctrl+f")
         menubar.add_cascade(label="Edit", menu=edit_menu)
         view_menu = tk.Menu(menubar, tearoff=0)
         view_menu.add_command(label="Font +", command=text_box.font_increase, accelerator="Ctrl++")
@@ -103,6 +113,10 @@ class Application(ttk.Frame):
             83: self.save_file_handler,     # S
             1099: self.save_file_handler,   # s (Russian layout)
             1067: self.save_file_handler,   # S (Russian layout)
+            102: self.toggle_find_bar,      # f
+            70: self.toggle_find_bar,       # F
+            1072: self.toggle_find_bar,     # f (Russian layout)
+            1040: self.toggle_find_bar,     # F (Russian layout)
             1089: copy_event,               # c (Russian layout)
             1057: copy_event,               # C (Russian layout)
         }
@@ -113,6 +127,7 @@ class Application(ttk.Frame):
                 1745: self.undo,                # z/Z (Russian layout, OSX)
                 1742: self.redo,                # y/Y (Russian layout, OSX)
                 1753: self.save_file_handler,   # s/S (Russian layout, OSX)
+                1729: self.toggle_find_bar,     # f/F (Russian layout, OSX)
                 1747: copy_event,               # c/C (Russian layout, OSX)
             })
             self.master.bind("<Command-Key>", lambda event: shortcuts.get(event.keysym_num, lambda: None)())
@@ -120,10 +135,11 @@ class Application(ttk.Frame):
         # Managing resizing
         self.master.rowconfigure(0, weight=1)
         self.master.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=3)
 
         # Registering attributes
+        self.find_bar = find_bar
         self.panel = panel
         self.status_bar = status_bar
         self.text_box = text_box
@@ -315,6 +331,12 @@ class Application(ttk.Frame):
         if path:
             self.export(path)
 
+    def toggle_find_bar(self):
+        if not self.find_bar.winfo_ismapped():
+            self.find_bar.grid(row=0, column=0, sticky=tk.W+tk.E)
+        else:
+            self.find_bar.grid_forget()
+
     # Logic handlers ###################################################################################################
 
     @undoable
@@ -324,6 +346,14 @@ class Application(ttk.Frame):
             self.render_entities()
         except RuntimeError as e:
             self.set_status(e.args[0])
+
+    def find_in_text(self):
+        query = self.find_bar.get_query()
+        if query:
+            index = "1.0" if not self.text_box.selection_exists() else self.text_box.get_selection_indices()[1]
+            found_index = self.text_box.search(query, index, nocase=1)
+            if found_index:
+                self.text_box.highlight_search_result(found_index, f"{found_index} + {len(query)} chars")
 
     @undoable
     def delete_entity(self) -> str:

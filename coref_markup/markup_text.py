@@ -4,6 +4,7 @@ from tkinter.scrolledtext import ScrolledText
 from typing import *
 
 from coref_markup import utils
+from coref_markup.const import *
 from coref_markup.markup import Span
 from coref_markup.settings import Settings
 
@@ -89,11 +90,18 @@ class Tag:
 class MarkupText(ScrolledText):
     def __init__(self, *, settings: Settings, **kwargs):
         super().__init__(**kwargs, font=(FONT_TYPE, settings.text_box_font_size))
-        self.configure(state="disabled")
+        self.configure(state="disabled", inactiveselectbackground=self.cget("selectbackground"))
         self.tag_configure("sel", underline=True)
         self.clear_tags()
 
         self.settings = settings
+
+        if MAC:
+            self.tag_configure("search_result",
+                               background=self.tag_cget("sel", "background"),
+                               underline=self.tag_cget("sel", "underline"))
+            self.bind("<FocusIn>", self.on_focus_in)
+            self.bind("<FocusOut>", self.on_focus_out)
 
     def add_highlight(self, span: Span, entity_idx: int, color: str):
         tag = Tag(self, span, color)
@@ -107,7 +115,8 @@ class MarkupText(ScrolledText):
 
     def clear_tags(self):
         for tag in self.tag_names():
-            self.tag_delete(tag)
+            if tag != "search_result":
+                self.tag_delete(tag)
         self.entity2spans: Dict[int, List[Span]] = defaultdict(list)
         self.highlights: Dict[Span, Tag] = {}
         self.tag2entity: Dict[str, int] = {}
@@ -171,6 +180,24 @@ class MarkupText(ScrolledText):
                 self_in_self = sum(1 for _ in enclosing_tags) - 1
                 self.highlights[span].fix_overlapping(self_in_self)
         self.tag_raise("sel")  # selection to be above any other tag
+
+    def highlight_search_result(self, start: str, end: str):
+        self.clear_selection()
+        self.tag_add("sel", start, end)
+        self.see(end)
+
+        if MAC:
+            self.tag_remove("search_result", "1.0", "end")
+            self.tag_add("search_result", start, end)
+            self.tag_raise("search_result")
+
+    def on_focus_in(self, event: tk.Event):
+        self.tag_remove("search_result", "1.0", "end")
+
+    def on_focus_out(self, event: tk.Event):
+        if self.selection_exists():
+            self.tag_add("search_result", *self.get_selection_indices())
+            self.tag_raise("search_result")
 
     def restore_all_highlights(self):
         for span in self.highlights:
