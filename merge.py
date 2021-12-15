@@ -1,137 +1,213 @@
 import argparse
-import copy
-import itertools
+from itertools import combinations, takewhile
 import json
+import logging
 from typing import *
+import sys
 
 
 Span = Tuple[int, int]
+Entity = List[Span]
 
 
-class Entity:
-    def __init__(self, spans: Iterable[Span]):
-        self.spans: Set[Span] = set(spans)
-        self._included_spans: Set[Span] = set()
+def build_entities(links: Set[Tuple[Span, Span]]) -> List[Entity]:
+    span2entity = {}
 
-    def add_included_spans(self, spans: Iterable[Span]):
-        self._included_spans.update(spans)
+    def get_entity(span: Span) -> Entity:
+        if span not in span2entity:
+            span2entity[span] = [span]
+        return span2entity[span]
 
-    @property
-    def included_spans(self) -> Set[Span]:
-        return self._included_spans - self.spans
+    for source, target in links:
+        source_entity, target_entity = get_entity(source), get_entity(target)
+        if source_entity is not target_entity:
+            source_entity.extend(target_entity)
+            for span in target_entity:
+                span2entity[span] = source_entity
 
+    ids = set()
+    entities = []
+    for entity in span2entity.values():
+        if id(entity) not in ids:
+            ids.add(id(entity))
+            entities.append(entity)
 
-class Markup:
-    def __init__(self,
-                 entities: List[List[Span]],
-                 includes: List[int],
-                 text: str):
-        self.entities = self._parse_entities(entities, includes)
-        self.span2entity: Dict[Span, Entity] = {
-            span: entity
-            for entity in self.entities
-            for span in entity.spans
-        }
-        self.text = text
-
-    def add_entity(self, span: Span):
-        assert span not in self.span2entity
-        entity = Entity([span])
-        self.entities.add(entity)
-        self.span2entity[span] = entity
-
-    def get_or_add_entity(self, span: Span) -> Entity:
-        if span not in self.span2entity:
-            self.add_entity(span)
-        return self.span2entity[span]
-
-    def merge_spans(self, a_span: Span, b_span: Span):
-        a = self.get_or_add_entity(a_span)
-        b = self.get_or_add_entity(b_span)
-        if a is b:
-            return
-        self.entities.remove(a)
-        self.entities.remove(b)
-
-        new_entity = Entity(itertools.chain(a.spans, b.spans))
-        new_entity.add_included_spans(itertools.chain(a.included_spans,
-                                                      b.included_spans))
-
-        self.entities.add(new_entity)
-        for span in itertools.chain(a.spans, b.spans):
-            self.span2entity[span] = new_entity
-
-    def to_dict(self) -> dict:
-        entities = sorted(self.entities, key=lambda x: min(x.spans))
-        entity2idx = {entity: i for i, entity in enumerate(entities)}
-
-        includes = []
-        for entity in entities:
-            included_entities = {self.span2entity[span]
-                                 for span in entity.included_spans}
-            includes.append(sorted(entity2idx[e] for e in included_entities))
-
-        return {
-            "entities": [sorted(entity.spans) for entity in entities],
-            "includes": includes,
-            "text": self.text
-        }
-
-    @staticmethod
-    def _parse_entities(entities: List[List[Span]],
-                        includes: List[int]) -> Set[Entity]:
-        entities: List[Entity] = [Entity(spans) for spans in entities]
-        for entity_idx, inner_entities in enumerate(includes):
-            for inner_entity_idx in inner_entities:
-                entities[entity_idx].add_included_spans(entities[inner_entity_idx].spans)
-        return set(entities)
+    return sorted(sorted(entity) for entity in entities)
 
 
-def merge(versions: List[Markup]) -> Markup:
-    if not all(l.text == r.text for l, r in zip(versions, versions[1:])):
-        raise ValueError("Texts are not the same")
-    result = copy.deepcopy(versions[0])
-    for version in versions[1:]:
-        for version_entity in version.entities:
-            spans = list(version_entity.spans)
-            for l, r in zip(spans, spans[1:]):
-                result.merge_spans(l, r)
-    return result
+def get_links(markup: dict) -> Set[Tuple[Span, Span]]:
+    links = set()
+    for entity in markup["entities"]:
+        spans = sorted(entity)
+        links.update(combinations(spans, 2))
+    return links
 
 
-def normalize(s: str) -> str:
-    return s.replace("\r\n", "\n")
+def get_spans(markup: dict) -> Set[Span]:
+    return {span for entity in markup["entities"] for span in entity}
 
 
-def read_markup(path: str) -> Markup:
-    return Markup(**read_markup_dict)
+def merge(a: dict, b: dict) -> dict:
+    text = a["text"]
+    a_spans, b_spans = get_spans(a), get_spans(b)
+    common_spans = a_spans & b_spans
+
+    for span in a_spans:
+        if span not in common_spans:
+            logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from B")
+    for span in b_spans:
+        if span not in common_spans:
+            logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from A")
+
+    a_links, b_links = get_links(a), get_links(b)
+    common_links = a_links & b_links
+
+    for link in a_links:
+        if link not in common_links:
+            source, target = link
+            if source in common_spans and target in common_spans:
+                logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from B")
+    for link in b_links:
+        if link not in common_links:
+            source, target = link
+            if source in common_spans and target in common_spans:
+                logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
+
+    merged_entities = build_entities(a_links | b_links)
+    return {
+        "entities": merged_entities,
+        "includes": [[] for _ in merged_entities],
+        "text": text
+    }
+
+# Cleaning functions ==========================================================
 
 
-def read_markup_dict(path: str) -> Markup:
+def clean(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    entities = remove_singletons(entities, text)
+    entities = strip_spans(entities, text)
+    entities = remove_empty_spans(entities)
+    entities = deduplicate(entities, text)
+    entities = fix_overlapping_spans(entities, text)
+    entities = remove_singletons(entities, text)
+    return entities
+
+
+def deduplicate(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    seen_spans = set()
+    for entity in entities:
+        spans = []
+        for span in entity:
+            if span not in seen_spans:
+                seen_spans.add(span)
+                spans.append(span)
+            else:
+                logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span)]}»")
+        yield spans
+
+
+def fix_overlapping_spans(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    for entity in entities:
+        non_overlapping_spans = []
+        spans = sorted(entity, key=lambda span: (span[0] - span[1], span))
+        span_map = [False for _ in text]
+        for span in spans:
+            if not any(span_map[slice(*span)]):
+                for i in range(*span):
+                    span_map[i] = True
+                non_overlapping_spans.append(span)
+            else:
+                logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
+        yield non_overlapping_spans
+
+
+def remove_empty_spans(entities: Iterable[Entity]) -> Iterator[Entity]:
+    for entity in entities:
+        non_empty_spans = [(start, end) for start, end in entity if start < end]
+
+        if len(non_empty_spans) != len(entity):
+            logging.info(f"CLEAN: deleted {len(entity) - len(non_empty_spans)} empty spans")
+
+        yield non_empty_spans
+
+
+def remove_singletons(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    for entity in entities:
+        if len(entity) > 1:
+            yield entity
+        elif entity:
+            logging.info(f"CLEAN: deleted singleton «{text[slice(*entity[0])]}»")
+        else:
+            logging.info(f"CLEAN: deleted empty entity")
+
+
+def strip_spans(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    """ Can produce empty and duplicate spans """
+    for entity in entities:
+        spans = []
+        for start, end in entity:
+            span_text = text[start:end]
+            start_offset = countwhile(str.isspace, span_text)
+            end_offset = countwhile(str.isspace, reversed(span_text))
+            new_span = (start + start_offset, end - end_offset)
+            spans.append(new_span)
+
+            if (start, end) != new_span:
+                logging.info(f"CLEAN: «{text[start:end]}» -> «{text[slice(*new_span)]}»")
+
+        yield spans
+
+
+# Utility functions ===========================================================
+
+
+def countwhile(predicate: Callable[[Any], bool],
+                iterable: Iterable[Any]
+                ) -> int:
+    """ Returns the number of times the predicate evaluates to True until
+    it fails or the iterable is exhausted """
+    return sum(takewhile(bool, map(predicate, iterable)))
+
+
+def read_markup_dict(path: str) -> dict:
     with open(path, mode="r", encoding="utf8") as f:
         markup_dict = json.load(f)
     markup_dict["entities"] = [[tuple(span) for span in entity]
                                for entity in markup_dict["entities"]]
-    markup_dict["text"] = normalize(markup_dict["text"])
     return markup_dict
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     argparser = argparse.ArgumentParser()
-    argparser.add_argument("file", nargs="+",
-                           help="Paths to markup files to merge.")
+    argparser.add_argument("a", help="Path to a markup file.")
+    argparser.add_argument("b", help="Path to another markup file.")
     argparser.add_argument("--out", "-o", required=True,
                            help="Output file name/path.")
     args = argparser.parse_args()
 
-    if len(args.file) < 2:
-        raise ValueError("At least two input files are required")
+    paths = (args.a, args.b)
 
     versions = []
-    for filename in args.file:
-        versions.append(read_markup(filename))
+    for path in paths:
+        versions.append(read_markup_dict(path))
 
-    merged_markup = merge(versions)
+    if versions[0]["text"] != versions[1]["text"]:
+        print("Texts are not the same!")
+        sys.exit(1)
 
+    for version, path in zip(versions, paths):
+        logging.info(f"Cleaning {path}")
+        version["entities"] = list(clean(version["entities"], version["text"])) # does not consider child/parent
+                                                                                # relations yet. Can break child/parent
+                                                                                # data while removing singletons
+                                                                                # (which can be valid parents)
+        logging.warning(f"Removing child/parent relations from {path}")
+        version["includes"] = [[] for _ in version["entities"]]
+
+    logging.info("Merging")
+    merged = merge(*versions)
+    merged["entities"] = list(clean(merged["entities"], merged["text"]))        # in case new overlapping spans were
+                                                                                # introduced while merging
     with open(args.out, mode="w", encoding="utf8") as f:
-        json.dump(merged_markup.to_dict(), f, ensure_ascii=False)
+        json.dump(merged, f, ensure_ascii=False)

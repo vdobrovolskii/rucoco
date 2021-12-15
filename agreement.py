@@ -2,8 +2,7 @@ import argparse
 import os
 from typing import *
 
-from diff import f1, get_children, _lea_children
-from merge import read_markup_dict
+from diff import f1, get_children, _lea_children, read_markup_dict
 
 
 EPS = 1e-7
