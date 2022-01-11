@@ -56,7 +56,7 @@ def get_pairs_from_dir(path: str) -> List[DocumentPair]:
     pairs = []
     for name, paths in name2paths.items():
         if len(paths) == 1:
-            print(f"No matching document for {os.path.join(paths[0], name)}")
+            print(f"No matching document for {paths[0]}")
         elif len(paths) > 2:
             print(f"Too many matching documents: {', '.join(paths)}")
         else:
