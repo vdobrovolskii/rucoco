@@ -160,6 +160,19 @@ class MarkupText(ScrolledText):
         self.settings.text_box_font_size += 1
         self.configure(font=(FONT_TYPE, self.settings.text_box_font_size))
 
+    def fix_overlapping_highlights(self):
+        # Longer spans first
+        all_spans = sorted(((span, entity_idx) for entity_idx, spans in self.entity2spans.items() for span in spans),
+                           key=lambda x: self.span_length(x[0]), reverse=True)
+        for span, entity_idx in all_spans:
+            tags = [tag for tag in self.tag_names(span[0]) if tag.startswith("e")]
+            if len(tags) > 1:
+                sibling_tags = (tag for tag in tags if self.tag2entity[tag] == entity_idx)
+                enclosing_tags = (tag for tag in sibling_tags if self.compare(span[1], "<=", self.tag_ranges(tag)[1]))
+                self_in_self = sum(1 for _ in enclosing_tags) - 1
+                self.highlights[span].fix_overlapping(self_in_self)
+        self.tag_raise("sel")  # selection to be above any other tag
+
     def get_entity_label(self, entity_idx: int, max_width: int) -> str:
         first_span = min(self.entity2spans[entity_idx], key=self.convert_tk_to_char)
         return self.get(*first_span)[:max_width]
@@ -175,18 +188,8 @@ class MarkupText(ScrolledText):
             if tag.startswith("e"):
                 yield self.index(f"{tag}.first"), self.index(f"{tag}.last")
 
-    def fix_overlapping_highlights(self):
-        # Longer spans first
-        all_spans = sorted(((span, entity_idx) for entity_idx, spans in self.entity2spans.items() for span in spans),
-                           key=lambda x: self.span_length(x[0]), reverse=True)
-        for span, entity_idx in all_spans:
-            tags = [tag for tag in self.tag_names(span[0]) if tag.startswith("e")]
-            if len(tags) > 1:
-                sibling_tags = (tag for tag in tags if self.tag2entity[tag] == entity_idx)
-                enclosing_tags = (tag for tag in sibling_tags if self.compare(span[1], "<=", self.tag_ranges(tag)[1]))
-                self_in_self = sum(1 for _ in enclosing_tags) - 1
-                self.highlights[span].fix_overlapping(self_in_self)
-        self.tag_raise("sel")  # selection to be above any other tag
+    def has_highlights(self) -> bool:
+        return bool(self.highlights)
 
     def highlight_search_result(self, start: str, end: str):
         self.clear_selection()

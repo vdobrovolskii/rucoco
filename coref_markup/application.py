@@ -292,6 +292,13 @@ class Application(ttk.Frame):
             if n_sections > 0:
                 self.text_menu.add_separator()
             self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
+
+            if span in self.markup.debug_info:
+                comment, shared_comment = self.markup.debug_info[span]
+                self.text_menu.add_command(label=f"DIFF: {comment}", state="disabled")
+                if shared_comment is not None:
+                    self.text_menu.add_command(label=f"DIFF: {shared_comment}", state="disabled")
+
             if selected_span_text is not None:
                 self.text_menu.add_command(label=f"Link with «{selected_span_text}»",
                                            command=partial(self.link_span_to_existing_span,
@@ -434,6 +441,10 @@ class Application(ttk.Frame):
         for parent_entity_idx, child_entities in enumerate(data["includes"]):
             for child_entity_idx in child_entities:
                 markup.add_child_entity(child_entity_idx, parent_entity_idx)
+        if "diff" in data:
+            for entry in data["diff"]:
+                span = self.text_box.convert_char_to_tk(entry["span"])
+                markup.debug_info[span] = (entry["comment"], entry["shared_comment"])
         self.markup = markup
 
     def redo(self):
@@ -516,6 +527,13 @@ class Application(ttk.Frame):
 
     # Renderers ########################################################################################################
 
+    def color_spans_for_debugging(self):
+        colored = set(self.markup.debug_info.keys())
+        for entity_idx in self.markup.get_entities():
+            for span in self.markup.get_spans(entity_idx):
+                if span not in colored:
+                    self.text_box.dim_highlight(span)
+
     def get_entity_color(self, entity_idx: int) -> str:
         if entity_idx not in self.entity2color:
             self.entity2color[entity_idx] = self.color_stack.pop() if self.color_stack else next(self.all_colors)
@@ -551,6 +569,8 @@ class Application(ttk.Frame):
         if self.selected_entity is not None:
             self.selected_entity = self.selected_entity  # trigger redrawing of entity selection
             self.entity2label[self.selected_entity].select()
+        elif self.markup.debug_info:
+            self.color_spans_for_debugging()
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
@@ -584,6 +604,13 @@ class Application(ttk.Frame):
             "text": self.text_box.get("1.0", "end-1c")
         }
 
+        if self.markup.debug_info:
+            state["diff"] = []
+            for span, (comment, shared_comment) in self.markup.debug_info.items():
+                state["diff"].append({"span": self.text_box.convert_tk_to_char(span),
+                                      "comment": comment,
+                                      "shared_comment": shared_comment})
+
         with open(path, mode="w", encoding="utf8") as f:
             json.dump(state, f, ensure_ascii=False)
         self.filename = path
@@ -614,6 +641,8 @@ class Application(ttk.Frame):
         if value is None:
             self._selected_entity = None
             self.text_box.restore_all_highlights()
+            if self.markup.debug_info and self.text_box.has_highlights():
+                self.color_spans_for_debugging()
         else:
             self._selected_entity = value
             for entity_idx in self.markup.get_entities():

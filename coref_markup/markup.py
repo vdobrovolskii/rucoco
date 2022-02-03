@@ -58,6 +58,8 @@ class Markup:
         self._span2entity: Dict[Span, Entity] = {}
         self._entities: List[Optional[Entity]] = []
 
+        self.debug_info: Dict[Span, Tuple[str, Optional[str]]] = {}
+
     def __bool__(self):
         return bool(self._span2entity)
 
