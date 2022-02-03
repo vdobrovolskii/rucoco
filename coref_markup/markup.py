@@ -1,7 +1,20 @@
+from dataclasses import dataclass, fields
 from typing import *
 
 
 Span = Tuple[str, str]
+
+
+@dataclass
+class DiffInfo:
+    comment: Optional[str]
+    shared_comment: Optional[str]
+
+    def __iter__(self):
+        return iter(getattr(self, field.name) for field in fields(self))
+
+    def is_empty(self):
+        return all(value is None for value in self)
 
 
 class Entity:
@@ -58,7 +71,7 @@ class Markup:
         self._span2entity: Dict[Span, Entity] = {}
         self._entities: List[Optional[Entity]] = []
 
-        self.debug_info: Dict[Span, Tuple[str, Optional[str]]] = {}
+        self.diff_info: Dict[Span, DiffInfo] = {}
 
     def __bool__(self):
         return bool(self._span2entity)

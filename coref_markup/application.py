@@ -11,7 +11,7 @@ from typing import *
 from coref_markup.const import *
 from coref_markup.find_bar import FindBar
 from coref_markup.label_panel import LabelPanel
-from coref_markup.markup import Span, Markup
+from coref_markup.markup import DiffInfo, Span, Markup
 from coref_markup.markup_text import MarkupText
 from coref_markup.markup_label import MarkupLabel
 from coref_markup.settings import Settings
@@ -293,11 +293,14 @@ class Application(ttk.Frame):
                 self.text_menu.add_separator()
             self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
 
-            if span in self.markup.debug_info:
-                comment, shared_comment = self.markup.debug_info[span]
-                self.text_menu.add_command(label=f"DIFF: {comment}", state="disabled")
+            if span in self.markup.diff_info:
+                comment, shared_comment = self.markup.diff_info[span]
+                if comment is not None:
+                    self.text_menu.add_command(label=f"RESOLVE: {comment}",
+                                               command=partial(self.resolve_diff, span=span, shared=False))
                 if shared_comment is not None:
-                    self.text_menu.add_command(label=f"DIFF: {shared_comment}", state="disabled")
+                    self.text_menu.add_command(label=f"RESOLVE: {shared_comment}",
+                                               command=partial(self.resolve_diff, span=span, shared=True))
 
             if selected_span_text is not None:
                 self.text_menu.add_command(label=f"Link with «{selected_span_text}»",
@@ -444,7 +447,7 @@ class Application(ttk.Frame):
         if "diff" in data:
             for entry in data["diff"]:
                 span = self.text_box.convert_char_to_tk(entry["span"])
-                markup.debug_info[span] = (entry["comment"], entry["shared_comment"])
+                markup.diff_info[span] = DiffInfo(entry["comment"], entry["shared_comment"])
         self.markup = markup
 
     def redo(self):
@@ -452,6 +455,22 @@ class Application(ttk.Frame):
             self.undo_stack.append(self.markup)
             self.markup = self.redo_stack.pop()
             self.render_entities()
+
+    @undoable
+    def resolve_diff(self, span: Span, shared: bool = False):
+        if shared:
+            span_comment = self.markup.diff_info[span].shared_comment
+            entity_idx = self.markup.get_entity(span)
+            for sibling in self.markup.get_spans(entity_idx):
+                if sibling in self.markup.diff_info and self.markup.diff_info[sibling].shared_comment == span_comment:
+                    self.markup.diff_info[sibling].shared_comment = None
+                    if self.markup.diff_info[sibling].is_empty():
+                        del self.markup.diff_info[sibling]
+        else:
+            self.markup.diff_info[span].comment = None
+            if self.markup.diff_info[span].is_empty():
+                del self.markup.diff_info[span]
+        self.color_spans_for_diff()
 
     @undoable
     def replace_span(self, span: Span, new_span: Span):
@@ -527,12 +546,18 @@ class Application(ttk.Frame):
 
     # Renderers ########################################################################################################
 
-    def color_spans_for_debugging(self):
-        colored = set(self.markup.debug_info.keys())
-        for entity_idx in self.markup.get_entities():
-            for span in self.markup.get_spans(entity_idx):
-                if span not in colored:
-                    self.text_box.dim_highlight(span)
+    def color_spans_for_diff(self):
+        if self.markup.diff_info:
+            colored = set(self.markup.diff_info.keys())
+            for entity_idx in self.markup.get_entities():
+                for span in self.markup.get_spans(entity_idx):
+                    if span in colored:
+                        self.text_box.restore_highlight(span)
+                    else:
+                        self.text_box.dim_highlight(span)
+        else:
+            self.text_box.restore_all_highlights()
+            self.set_status("No more diffs left, returning to normal view")
 
     def get_entity_color(self, entity_idx: int) -> str:
         if entity_idx not in self.entity2color:
@@ -569,8 +594,8 @@ class Application(ttk.Frame):
         if self.selected_entity is not None:
             self.selected_entity = self.selected_entity  # trigger redrawing of entity selection
             self.entity2label[self.selected_entity].select()
-        elif self.markup.debug_info:
-            self.color_spans_for_debugging()
+        elif self.markup.diff_info:
+            self.color_spans_for_diff()
 
     def set_status(self, message: str, duration: int = 5000):
         self.status_bar.configure(text=message)
@@ -604,9 +629,9 @@ class Application(ttk.Frame):
             "text": self.text_box.get("1.0", "end-1c")
         }
 
-        if self.markup.debug_info:
+        if self.markup.diff_info:
             state["diff"] = []
-            for span, (comment, shared_comment) in self.markup.debug_info.items():
+            for span, (comment, shared_comment) in self.markup.diff_info.items():
                 state["diff"].append({"span": self.text_box.convert_tk_to_char(span),
                                       "comment": comment,
                                       "shared_comment": shared_comment})
@@ -641,8 +666,8 @@ class Application(ttk.Frame):
         if value is None:
             self._selected_entity = None
             self.text_box.restore_all_highlights()
-            if self.markup.debug_info and self.text_box.has_highlights():
-                self.color_spans_for_debugging()
+            if self.markup.diff_info and self.text_box.has_highlights():
+                self.color_spans_for_diff()
         else:
             self._selected_entity = value
             for entity_idx in self.markup.get_entities():
