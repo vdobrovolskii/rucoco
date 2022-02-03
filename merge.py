@@ -85,10 +85,11 @@ def merge(a: dict, b: dict) -> dict:
 
 def clean(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
     entities = remove_singletons(entities, text)
+    entities = fix_overlapping_spans(entities, text)
+    entities = fix_discontinuous_spans(entities, text)
     entities = strip_spans(entities, text)
     entities = remove_empty_spans(entities)
     entities = deduplicate(entities, text)
-    entities = fix_overlapping_spans(entities, text)
     entities = remove_singletons(entities, text)
     return entities
 
@@ -104,6 +105,31 @@ def deduplicate(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
             else:
                 logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span)]}»")
         yield spans
+
+
+def fix_discontinuous_spans(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
+    """ Assumes that all the spans of the same entity are non-overlapping.
+    [Jo][hn] -> [John]
+    """
+    for entity in entities:
+        affected_starts = set()
+        end2start = {}
+
+        for start, end in sorted(entity):
+            if start in end2start:  # span's start is another span's end
+                fixed_start = end2start.pop(start)
+                end2start[end] = fixed_start
+                affected_starts.add(fixed_start)
+            else:
+                end2start[end] = start
+
+        fixed_spans = []
+        for end, start in end2start.items():
+            if start in affected_starts:
+                logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}»")
+            fixed_spans.append((start, end))
+
+        yield sorted(fixed_spans)
 
 
 def fix_overlapping_spans(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
