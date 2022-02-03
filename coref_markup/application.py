@@ -478,6 +478,10 @@ class Application(ttk.Frame):
             entity_idx = self.markup.get_entity(span)
             try:
                 self.markup.add_span_to_entity(new_span, entity_idx)
+
+                if span in self.markup.diff_info:
+                    self.markup.diff_info[new_span] = deepcopy(self.markup.diff_info[span])
+
                 self.markup.delete_span(span)
                 self.render_entities()
             except RuntimeError as e:

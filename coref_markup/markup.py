@@ -95,6 +95,8 @@ class Markup:
         self._entities[entity_idx] = None
         for span in entity.spans:
             del self._span2entity[span]
+            if span in self.diff_info:
+                del self.diff_info[span]
         while entity.parents:
             parent = entity.parents.pop()
             parent.children.remove(entity)
@@ -109,6 +111,8 @@ class Markup:
         entity = self._span2entity[span]
         entity.spans.remove(span)
         del self._span2entity[span]
+        if span in self.diff_info:
+            del self.diff_info[span]
         if not entity.spans:
             self.delete_entity(entity.idx)
             return entity.idx
