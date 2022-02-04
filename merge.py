@@ -1,6 +1,5 @@
 import argparse
 from collections import defaultdict
-from copy import deepcopy
 from dataclasses import asdict, dataclass
 from itertools import combinations, takewhile
 import json
@@ -105,7 +104,7 @@ def build_includes(entities: List[Entity], parent_links: Set[Tuple[Span, Span]])
     for entity_idx, entity in enumerate(entities):
         for span in entity:
             span2entity_idx[span] = entity_idx
-    includes = [set() for _ in entities]
+    includes: List[Set[int]] = [set() for _ in entities]
     for parent_span, child_span in parent_links:
         parent_entity_idx = span2entity_idx[parent_span]
         child_entity_idx = span2entity_idx[child_span]
@@ -113,8 +112,123 @@ def build_includes(entities: List[Entity], parent_links: Set[Tuple[Span, Span]])
     return [sorted(children) for children in includes]
 
 
+def clean(markup: Markup):
+    entities = [[SpanInfo(span) for span in entity] for entity in markup.entities]
+    for parent_idx, children_list in enumerate(markup.includes):
+        for child_idx in children_list:
+            for parent_span in entities[parent_idx]:
+                for child_span in entities[child_idx]:
+                    SpanInfo.link(parent=parent_span, child=child_span)
+    for entity in entities:
+        for span in entity:
+            span.unlink_redundant_children()
+
+    entities = remove_singletons(entities, markup.text)
+    entities = fix_overlapping_spans(entities, markup.text)
+    entities = fix_discontinuous_spans(entities, markup.text)
+    entities = strip_spans(entities, markup.text)
+    entities = remove_empty_spans(entities)
+    entities = deduplicate(entities, markup.text)
+    entities = remove_singletons(entities, markup.text)
+    entities = sorted(sorted(entity) for entity in entities)
+
+    span2entity_idx: Dict[Span, int] = {}
+    for entity_idx, entity in enumerate(entities):
+        for span_info in entity:
+            span2entity_idx[span_info.span] = entity_idx
+    includes = []
+    for entity in entities:
+        children = set()
+        for parent in entity:
+            for child in parent.children:
+                children.add(span2entity_idx[child.span])
+        includes.append(sorted(children))
+
+    markup.entities = [[span_info.span for span_info in entity] for entity in entities]
+    markup.includes = includes
+
+
+def countwhile(predicate: Callable[[Any], bool],
+               iterable: Iterable[Any]
+               ) -> int:
+    """ Returns the number of times the predicate evaluates to True until
+    it fails or the iterable is exhausted """
+    return sum(takewhile(bool, map(predicate, iterable)))
+
+
+def deduplicate(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
+    """ In case of conflict, keeps the spans from the entity with the most spans. """
+    seen_spans = set()
+    for entity in sorted(entities, key=lambda x: -len(x)):
+        spans = []
+        for span_info in entity:
+            if span_info.span not in seen_spans:
+                seen_spans.add(span_info.span)
+                spans.append(span_info)
+            else:
+                logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span_info.span)]}»")
+        yield spans
+
+
+def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
+    """ Assumes that all the spans of the same entity are non-overlapping.
+    [Jo][hn] -> [John]
+    """
+    for entity in entities:
+        affected_starts: Dict[int, List[SpanInfo]] = defaultdict(list)
+        end2start: Dict[int, int] = {}
+        span2info = {si.span: si for si in entity}
+
+        for span_info in sorted(entity, key=lambda x: x.span):
+            start, end = span_info.span
+            if start in end2start:  # span's start is another span's end
+                fixed_start = end2start.pop(start)
+                end2start[end] = fixed_start
+                affected_starts[fixed_start].append(span_info)
+            else:
+                end2start[end] = start
+
+        fixed_spans = []
+        for end, start in end2start.items():
+            if start in affected_starts:
+                logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}»")
+                new_span = (start, end)
+                parents = set()
+                children = set()
+                for span_info in affected_starts[start]:
+                    parents.update(span_info.parents)
+                    children.update(span_info.children)
+                    span_info.unlink_all_parents_and_children()
+                new_span_info = SpanInfo(new_span)
+                for parent in parents:
+                    SpanInfo.link(parent=parent, child=new_span_info)
+                for child in children:
+                    SpanInfo.link(parent=new_span_info, child=child)
+                fixed_spans.append(new_span_info)
+            else:
+                fixed_spans.append(span2info[(start, end)])
+
+        yield fixed_spans
+
+
+def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
+    for entity in entities:
+        non_overlapping_spans = []
+        spans = sorted(entity, key=lambda x: (x.span[0] - x.span[1], x.span))
+        span_map = [False for _ in text]
+        for span_info in spans:
+            span = span_info.span
+            if not any(span_map[slice(*span)]):
+                for i in range(*span):
+                    span_map[i] = True
+                non_overlapping_spans.append(span_info)
+            else:
+                logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
+        yield non_overlapping_spans
+
+
 def get_links(markup: Markup) -> Set[Tuple[Span, Span]]:
-    links = set()
+    links: Set[Tuple[Span, Span]] = set()
     for entity in markup.entities:
         spans = sorted(entity)
         links.update(combinations(spans, 2))
@@ -191,114 +305,12 @@ def merge(a: Markup, b: Markup) -> Markup:
     )
 
 
-# Cleaning functions ==========================================================
-
-
-def clean(markup: Markup):
-    entities = [[SpanInfo(span) for span in entity] for entity in markup.entities]
-    for parent_idx, children_list in enumerate(markup.includes):
-        for child_idx in children_list:
-            for parent_span in entities[parent_idx]:
-                for child_span in entities[child_idx]:
-                    SpanInfo.link(parent=parent_span, child=child_span)
-    for entity in entities:
-        for span in entity:
-            span.unlink_redundant_children()
-
-    entities = remove_singletons(entities, markup.text)
-    entities = fix_overlapping_spans(entities, markup.text)
-    entities = fix_discontinuous_spans(entities, markup.text)
-    entities = strip_spans(entities, markup.text)
-    entities = remove_empty_spans(entities)
-    entities = deduplicate(entities, markup.text)
-    entities = remove_singletons(entities, markup.text)
-    entities = sorted(sorted(entity) for entity in entities)
-
-    span2entity_idx: Dict[Span, int] = {}
-    for entity_idx, entity in enumerate(entities):
-        for span_info in entity:
-            span2entity_idx[span_info.span] = entity_idx
-    includes = []
-    for entity in entities:
-        children = set()
-        for parent in entity:
-            for child in parent.children:
-                children.add(span2entity_idx[child.span])
-        includes.append(sorted(children))
-
-    markup.entities = [[span_info.span for span_info in entity] for entity in entities]
-    markup.includes = includes
-
-
-def deduplicate(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
-    """ In case of conflict, keeps the spans from the entity with the most spans. """
-    seen_spans = set()
-    for entity in sorted(entities, key=lambda x: -len(x)):
-        spans = []
-        for span_info in entity:
-            if span_info.span not in seen_spans:
-                seen_spans.add(span_info.span)
-                spans.append(span_info)
-            else:
-                logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span_info.span)]}»")
-        yield spans
-
-
-def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
-    """ Assumes that all the spans of the same entity are non-overlapping.
-    [Jo][hn] -> [John]
-    """
-    for entity in entities:
-        affected_starts: Dict[int, List[SpanInfo]] = defaultdict(list)
-        end2start = {}
-        span2info = {si.span: si for si in entity}
-
-        for span_info in sorted(entity, key=lambda x: x.span):
-            start, end = span_info.span
-            if start in end2start:  # span's start is another span's end
-                fixed_start = end2start.pop(start)
-                end2start[end] = fixed_start
-                affected_starts[fixed_start].append(span_info)
-            else:
-                end2start[end] = start
-
-        fixed_spans = []
-        for end, start in end2start.items():
-            if start in affected_starts:
-                logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}»")
-                new_span = (start, end)
-                parents = set()
-                children = set()
-                for span_info in affected_starts[start]:
-                    parents.update(span_info.parents)
-                    children.update(span_info.children)
-                    span_info.unlink_all_parents_and_children()
-                new_span_info = SpanInfo(new_span)
-                for parent in parents:
-                    SpanInfo.link(parent=parent, child=new_span_info)
-                for child in children:
-                    SpanInfo.link(parent=new_span_info, child=child)
-                fixed_spans.append(new_span_info)
-            else:
-                fixed_spans.append(span2info[(start, end)])
-
-        yield fixed_spans
-
-
-def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
-    for entity in entities:
-        non_overlapping_spans = []
-        spans = sorted(entity, key=lambda x: (x.span[0] - x.span[1], x.span))
-        span_map = [False for _ in text]
-        for span_info in spans:
-            span = span_info.span
-            if not any(span_map[slice(*span)]):
-                for i in range(*span):
-                    span_map[i] = True
-                non_overlapping_spans.append(span_info)
-            else:
-                logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
-        yield non_overlapping_spans
+def read_markup(path: str) -> Markup:
+    with open(path, mode="r", encoding="utf8") as f:
+        markup_dict = json.load(f)
+    markup_dict["entities"] = [[tuple(span) for span in entity]
+                               for entity in markup_dict["entities"]]
+    return Markup(**markup_dict)
 
 
 def remove_empty_spans(entities: Iterable[EntityInfo]) -> Iterator[EntityInfo]:
@@ -324,7 +336,7 @@ def remove_singletons(entities: List[EntityInfo], text: str) -> Iterator[EntityI
         elif entity:
             logging.info(f"CLEAN: deleted singleton «{text[slice(*entity[0].span)]}»")
         else:
-            logging.info(f"CLEAN: deleted empty entity")
+            logging.info("CLEAN: deleted empty entity")
 
 
 def strip_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
@@ -342,25 +354,6 @@ def strip_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
                 logging.info(f"CLEAN: «{text[start:end]}» -> «{text[slice(*new_span)]}»")
 
         yield entity
-
-
-# Utility functions ===========================================================
-
-
-def countwhile(predicate: Callable[[Any], bool],
-               iterable: Iterable[Any]
-               ) -> int:
-    """ Returns the number of times the predicate evaluates to True until
-    it fails or the iterable is exhausted """
-    return sum(takewhile(bool, map(predicate, iterable)))
-
-
-def read_markup(path: str) -> Markup:
-    with open(path, mode="r", encoding="utf8") as f:
-        markup_dict = json.load(f)
-    markup_dict["entities"] = [[tuple(span) for span in entity]
-                               for entity in markup_dict["entities"]]
-    return Markup(**markup_dict)
 
 
 if __name__ == "__main__":
