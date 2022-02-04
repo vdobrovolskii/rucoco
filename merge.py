@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import asdict, dataclass
 from itertools import combinations, takewhile
 import json
 import logging
@@ -8,6 +9,13 @@ import sys
 
 Span = Tuple[int, int]
 Entity = List[Span]
+
+
+@dataclass
+class Markup:
+    entities: List[Entity]
+    includes: List[List[int]]
+    text: str
 
 
 def build_entities(links: Set[Tuple[Span, Span]]) -> List[Entity]:
@@ -35,20 +43,20 @@ def build_entities(links: Set[Tuple[Span, Span]]) -> List[Entity]:
     return sorted(sorted(entity) for entity in entities)
 
 
-def get_links(markup: dict) -> Set[Tuple[Span, Span]]:
+def get_links(markup: Markup) -> Set[Tuple[Span, Span]]:
     links = set()
-    for entity in markup["entities"]:
+    for entity in markup.entities:
         spans = sorted(entity)
         links.update(combinations(spans, 2))
     return links
 
 
-def get_spans(markup: dict) -> Set[Span]:
-    return {span for entity in markup["entities"] for span in entity}
+def get_spans(markup: Markup) -> Set[Span]:
+    return {span for entity in markup.entities for span in entity}
 
 
-def merge(a: dict, b: dict) -> dict:
-    text = a["text"]
+def merge(a: Markup, b: Markup) -> Markup:
+    text = a.text
     a_spans, b_spans = get_spans(a), get_spans(b)
     common_spans = a_spans & b_spans
 
@@ -74,11 +82,11 @@ def merge(a: dict, b: dict) -> dict:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
 
     merged_entities = build_entities(a_links | b_links)
-    return {
-        "entities": merged_entities,
-        "includes": [[] for _ in merged_entities],
-        "text": text
-    }
+    return Markup(
+        entities=merged_entities,
+        includes=[[] for _ in merged_entities],
+        text=text
+    )
 
 # Cleaning functions ==========================================================
 
@@ -188,19 +196,19 @@ def strip_spans(entities: Iterable[Entity], text: str) -> Iterator[Entity]:
 
 
 def countwhile(predicate: Callable[[Any], bool],
-                iterable: Iterable[Any]
-                ) -> int:
+               iterable: Iterable[Any]
+               ) -> int:
     """ Returns the number of times the predicate evaluates to True until
     it fails or the iterable is exhausted """
     return sum(takewhile(bool, map(predicate, iterable)))
 
 
-def read_markup_dict(path: str) -> dict:
+def read_markup(path: str) -> Markup:
     with open(path, mode="r", encoding="utf8") as f:
         markup_dict = json.load(f)
     markup_dict["entities"] = [[tuple(span) for span in entity]
                                for entity in markup_dict["entities"]]
-    return markup_dict
+    return Markup(**markup_dict)
 
 
 if __name__ == "__main__":
@@ -214,26 +222,26 @@ if __name__ == "__main__":
 
     paths = (args.a, args.b)
 
-    versions = []
+    versions: List[Markup] = []
     for path in paths:
-        versions.append(read_markup_dict(path))
+        versions.append(read_markup(path))
 
-    if versions[0]["text"] != versions[1]["text"]:
+    if versions[0].text != versions[1].text:
         print("Texts are not the same!")
         sys.exit(1)
 
     for version, path in zip(versions, paths):
         logging.info(f"Cleaning {path}")
-        version["entities"] = list(clean(version["entities"], version["text"])) # does not consider child/parent
-                                                                                # relations yet. Can break child/parent
-                                                                                # data while removing singletons
-                                                                                # (which can be valid parents)
+        version.entities = list(clean(version.entities, version.text))  # does not consider child/parent
+                                                                        # relations yet. Can break child/parent
+                                                                        # data while removing singletons
+                                                                        # (which can be valid parents)
         logging.warning(f"Removing child/parent relations from {path}")
-        version["includes"] = [[] for _ in version["entities"]]
+        version.includes = [[] for _ in version.entities]
 
     logging.info("Merging")
     merged = merge(*versions)
-    merged["entities"] = list(clean(merged["entities"], merged["text"]))        # in case new overlapping spans were
-                                                                                # introduced while merging
+    merged.entities = list(clean(merged.entities, merged.text)) # in case new overlapping spans were
+                                                                # introduced while merging
     with open(args.out, mode="w", encoding="utf8") as f:
-        json.dump(merged, f, ensure_ascii=False)
+        json.dump(asdict(merged), f, ensure_ascii=False)
