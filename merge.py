@@ -175,16 +175,17 @@ def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterat
     [Jo][hn] -> [John]
     """
     for entity in entities:
-        affected_starts: Dict[int, List[SpanInfo]] = defaultdict(list)
+        affected_starts: Dict[int, Set[SpanInfo]] = defaultdict(set)
         end2start: Dict[int, int] = {}
-        span2info = {si.span: si for si in entity}
+        end2info = {si.span[1]: si for si in entity}
 
         for span_info in sorted(entity, key=lambda x: x.span):
             start, end = span_info.span
             if start in end2start:  # span's start is another span's end
                 fixed_start = end2start.pop(start)
                 end2start[end] = fixed_start
-                affected_starts[fixed_start].append(span_info)
+                affected_starts[fixed_start].add(end2info[start])
+                affected_starts[fixed_start].add(span_info)
             else:
                 end2start[end] = start
 
@@ -206,7 +207,7 @@ def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterat
                     SpanInfo.link(parent=new_span_info, child=child)
                 fixed_spans.append(new_span_info)
             else:
-                fixed_spans.append(span2info[(start, end)])
+                fixed_spans.append(end2info[end])
 
         yield fixed_spans
 
