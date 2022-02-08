@@ -224,6 +224,7 @@ class MarkupText(ScrolledText):
         self.delete("1.0", tk.END)
         self.insert("end", text)
         self.configure(state="disabled")
+        self.clear_tags()
 
     def span_length(self, span: Span) -> int:
         return self.count(*span, "chars")
