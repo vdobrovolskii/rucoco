@@ -91,7 +91,10 @@ class DiffHandler():
             if span in spans:
                 regular_comment = "; ".join(comment for comment, shared in comments if not shared)
                 shared_comment = "; ".join(comment for comment, shared in comments if shared)
-                out.append({"span": span, "comment": regular_comment, "shared_comment": shared_comment})
+                out.append({
+                    "span": span,
+                    "comment": regular_comment if regular_comment else None,
+                    "shared_comment": shared_comment if shared_comment else None})
             else:
                 logging.debug(f"DIFF: failed to write diff for {span} («{markup.text[slice(*span)]}»)")
         return out
