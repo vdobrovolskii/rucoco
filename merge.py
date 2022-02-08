@@ -253,6 +253,7 @@ def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator
                     span_map[i] = True
                 non_overlapping_spans.append(span_info)
             else:
+                span_info.unlink_all_parents_and_children()
                 logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
                 DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", span)
         yield non_overlapping_spans
