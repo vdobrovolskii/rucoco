@@ -70,6 +70,33 @@ class SpanInfo:
 EntityInfo = List[SpanInfo]
 
 
+class DiffHandler():
+    _instances: Dict[str, "DiffHandler"] = {}
+
+    def __new__(cls, *args, **kwargs):
+        if __name__ not in DiffHandler._instances:
+            instance = super().__new__(cls, *args, **kwargs)
+            instance.span2diff = defaultdict(list)
+            DiffHandler._instances[__name__] = instance
+        return DiffHandler._instances[__name__]
+
+    def add(self, comment: str, *spans: Span, shared: bool = False):
+        for span in spans:
+            self.span2diff[span].append((comment, shared))
+
+    def get_diff(self, markup: Markup) -> List[dict]:
+        out = []
+        spans = get_spans(markup)
+        for span, comments in self.span2diff.items():
+            if span in spans:
+                regular_comment = "; ".join(comment for comment, shared in comments if not shared)
+                shared_comment = "; ".join(comment for comment, shared in comments if shared)
+                out.append({"span": span, "comment": regular_comment, "shared_comment": shared_comment})
+            else:
+                logging.debug(f"DIFF: failed to write diff for {span} («{markup.text[slice(*span)]}»)")
+        return out
+
+
 def build_entities(links: Set[Tuple[Span, Span]], singletons: Set[Span]) -> List[Entity]:
     span2entity = {}
 
@@ -167,6 +194,7 @@ def deduplicate(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
                 spans.append(span_info)
             else:
                 logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span_info.span)]}»")
+                DiffHandler().add("deleted duplicate span", span_info.span)
         yield spans
 
 
@@ -193,6 +221,7 @@ def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterat
         for end, start in end2start.items():
             if start in affected_starts:
                 logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}»")
+                DiffHandler().add("fixed discontinuous span", (start, end))
                 new_span = (start, end)
                 parents = set()
                 children = set()
@@ -225,6 +254,7 @@ def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator
                 non_overlapping_spans.append(span_info)
             else:
                 logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
+                DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", span)
         yield non_overlapping_spans
 
 
@@ -262,9 +292,11 @@ def merge(a: Markup, b: Markup) -> Markup:
     for span in a_spans:
         if span not in common_spans:
             logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from B")
+            DiffHandler().add("span missing in one of the annotations", span)
     for span in b_spans:
         if span not in common_spans:
             logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from A")
+            DiffHandler().add("span missing in one of the annotations", span)
 
     a_links, b_links = get_links(a), get_links(b)
     common_links = a_links & b_links
@@ -274,11 +306,13 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from B")
+                DiffHandler().add(f"missing link «{text[slice(*source)]}» + «{text[slice(*target)]}»", span)
     for link in b_links:
         if link not in common_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
+                DiffHandler().add(f"missing link «{text[slice(*source)]}» + «{text[slice(*target)]}»", span)
 
     a_parent_links, b_parent_links = get_parent_links(a), get_parent_links(b)
     common_parent_links = a_parent_links & b_parent_links
@@ -288,11 +322,13 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from B")
+                DiffHandler().add(f"missing parent link «{text[slice(*source)]}» > «{text[slice(*target)]}»", span, shared=True)
     for link in b_parent_links:
         if link not in common_parent_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from A")
+                DiffHandler().add(f"missing parent link «{text[slice(*source)]}» > «{text[slice(*target)]}»", span, shared=True)
 
     # These are spans that only have parent links, but not normal links
     a_singletons, b_singletons = get_singletons(a), get_singletons(b)
@@ -384,5 +420,10 @@ if __name__ == "__main__":
     merged = merge(*versions)
     clean(merged)
 
+    out = asdict(merged)
+    diff = DiffHandler().get_diff(merged)
+    if diff:
+        out["diff"] = diff
+
     with open(args.out, mode="w", encoding="utf8") as f:
-        json.dump(asdict(merged), f, ensure_ascii=False)
+        json.dump(out, f, ensure_ascii=False)
