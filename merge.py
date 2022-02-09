@@ -76,13 +76,13 @@ class DiffHandler():
     def __new__(cls, *args, **kwargs):
         if DiffHandler._instance is None:
             instance = super().__new__(cls, *args, **kwargs)
-            instance.span2diff = defaultdict(list)
+            instance.span2diff = defaultdict(set)
             DiffHandler._instance = instance
         return DiffHandler._instance
 
     def add(self, comment: str, *spans: Span, shared: bool = False):
         for span in spans:
-            self.span2diff[span].append((comment, shared))
+            self.span2diff[span].add((comment, shared))
 
     def get_diff(self, markup: Markup) -> List[dict]:
         out = []
@@ -246,7 +246,7 @@ def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterat
 
 def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
     for entity in entities:
-        non_overlapping_spans = []
+        non_overlapping_spans: List[SpanInfo] = []
         spans = sorted(entity, key=lambda x: (x.span[0] - x.span[1], x.span))
         span_map = [False for _ in text]
         for span_info in spans:
@@ -258,7 +258,8 @@ def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator
             else:
                 span_info.unlink_all_parents_and_children()
                 logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
-                DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", span)
+                preserved_span = next(si.span for si in non_overlapping_spans if si.span[0] <= span[0] < si.span[1])
+                DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", preserved_span)
         yield non_overlapping_spans
 
 
@@ -296,11 +297,11 @@ def merge(a: Markup, b: Markup) -> Markup:
     for span in a_spans:
         if span not in common_spans:
             logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from B")
-            DiffHandler().add("span missing in one of the annotations", span)
+            DiffHandler().add("added span", span)
     for span in b_spans:
         if span not in common_spans:
             logging.info(f"MERGE: «{text[slice(*span)]}» {span} missing from A")
-            DiffHandler().add("span missing in one of the annotations", span)
+            DiffHandler().add("added span", span)
 
     a_links, b_links = get_links(a), get_links(b)
     common_links = a_links & b_links
@@ -310,15 +311,15 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"one annotation missing link to «{text[slice(*target)]}»", source)
-                DiffHandler().add(f"one annotation missing link to «{text[slice(*source)]}»", target)
+                DiffHandler().add(f"added link to «{text[slice(*target)]}»", source)
+                DiffHandler().add(f"added link to «{text[slice(*source)]}»", target)
     for link in b_links:
         if link not in common_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"one annotation missing link to «{text[slice(*target)]}»", source)
-                DiffHandler().add(f"one annotation missing link to «{text[slice(*source)]}»", target)
+                DiffHandler().add(f"added link to «{text[slice(*target)]}»", source)
+                DiffHandler().add(f"added link to «{text[slice(*source)]}»", target)
 
     a_parent_links, b_parent_links = get_parent_links(a), get_parent_links(b)
     common_parent_links = a_parent_links & b_parent_links
@@ -328,15 +329,15 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"one annotation missing child: «{text[slice(*target)]}»", source, shared=True)
-                DiffHandler().add(f"one annotation missing parent: «{text[slice(*source)]}»", target, shared=True)
+                DiffHandler().add(f"added child: «{text[slice(*target)]}»", source, shared=True)
+                DiffHandler().add(f"added parent: «{text[slice(*source)]}»", target, shared=True)
     for link in b_parent_links:
         if link not in common_parent_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"one annotation missing child: «{text[slice(*target)]}»", source, shared=True)
-                DiffHandler().add(f"one annotation missing parent: «{text[slice(*source)]}»", target, shared=True)
+                DiffHandler().add(f"added child: «{text[slice(*target)]}»", source, shared=True)
+                DiffHandler().add(f"added parent: «{text[slice(*source)]}»", target, shared=True)
 
     # These are spans that only have parent links, but not normal links
     a_singletons, b_singletons = get_singletons(a), get_singletons(b)
@@ -397,6 +398,7 @@ def strip_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
 
             if (start, end) != new_span:
                 logging.info(f"CLEAN: «{text[start:end]}» -> «{text[slice(*new_span)]}»")
+                DiffHandler().add(f"stripped from «{text[start:end]}»", new_span)
 
         yield entity
 
