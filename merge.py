@@ -71,14 +71,14 @@ EntityInfo = List[SpanInfo]
 
 
 class DiffHandler():
-    _instances: Dict[str, "DiffHandler"] = {}
+    _instance: Optional["DiffHandler"] = None
 
     def __new__(cls, *args, **kwargs):
-        if __name__ not in DiffHandler._instances:
+        if DiffHandler._instance is None:
             instance = super().__new__(cls, *args, **kwargs)
             instance.span2diff = defaultdict(list)
-            DiffHandler._instances[__name__] = instance
-        return DiffHandler._instances[__name__]
+            DiffHandler._instance = instance
+        return DiffHandler._instance
 
     def add(self, comment: str, *spans: Span, shared: bool = False):
         for span in spans:
@@ -89,12 +89,12 @@ class DiffHandler():
         spans = get_spans(markup)
         for span, comments in self.span2diff.items():
             if span in spans:
-                regular_comment = "; ".join(comment for comment, shared in comments if not shared)
-                shared_comment = "; ".join(comment for comment, shared in comments if shared)
+                regular_comments = sorted(comment for comment, shared in comments if not shared)
+                shared_comments = sorted(comment for comment, shared in comments if shared)
                 out.append({
                     "span": span,
-                    "comment": regular_comment if regular_comment else None,
-                    "shared_comment": shared_comment if shared_comment else None})
+                    "comments": regular_comments,
+                    "shared_comments": shared_comments})
             else:
                 logging.debug(f"DIFF: failed to write diff for {span} («{markup.text[slice(*span)]}»)")
         return out
@@ -310,13 +310,15 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"missing link «{text[slice(*source)]}» + «{text[slice(*target)]}»", span)
+                DiffHandler().add(f"one annotation missing link to «{text[slice(*target)]}»", source)
+                DiffHandler().add(f"one annotation missing link to «{text[slice(*source)]}»", target)
     for link in b_links:
         if link not in common_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"missing link «{text[slice(*source)]}» + «{text[slice(*target)]}»", span)
+                DiffHandler().add(f"one annotation missing link to «{text[slice(*target)]}»", source)
+                DiffHandler().add(f"one annotation missing link to «{text[slice(*source)]}»", target)
 
     a_parent_links, b_parent_links = get_parent_links(a), get_parent_links(b)
     common_parent_links = a_parent_links & b_parent_links
@@ -326,13 +328,15 @@ def merge(a: Markup, b: Markup) -> Markup:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"missing parent link «{text[slice(*source)]}» > «{text[slice(*target)]}»", span, shared=True)
+                DiffHandler().add(f"one annotation missing child: «{text[slice(*target)]}»", source, shared=True)
+                DiffHandler().add(f"one annotation missing parent: «{text[slice(*source)]}»", target, shared=True)
     for link in b_parent_links:
         if link not in common_parent_links:
             source, target = link
             if source in common_spans and target in common_spans:
                 logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"missing parent link «{text[slice(*source)]}» > «{text[slice(*target)]}»", span, shared=True)
+                DiffHandler().add(f"one annotation missing child: «{text[slice(*target)]}»", source, shared=True)
+                DiffHandler().add(f"one annotation missing parent: «{text[slice(*source)]}»", target, shared=True)
 
     # These are spans that only have parent links, but not normal links
     a_singletons, b_singletons = get_singletons(a), get_singletons(b)

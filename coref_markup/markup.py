@@ -7,14 +7,14 @@ Span = Tuple[str, str]
 
 @dataclass
 class DiffInfo:
-    comment: Optional[str]
-    shared_comment: Optional[str]
+    comments: List[str]
+    shared_comments: List[str]
 
     def __iter__(self):
         return iter(getattr(self, field.name) for field in fields(self))
 
     def is_empty(self):
-        return all(value is None for value in self)
+        return all(value for value in self)
 
 
 class Entity:

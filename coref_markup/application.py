@@ -294,13 +294,15 @@ class Application(ttk.Frame):
             self.text_menu.add_command(label=f"«{span_text}»", state="disabled")
 
             if span in self.markup.diff_info:
-                comment, shared_comment = self.markup.diff_info[span]
-                if comment is not None:
+                comments, shared_comments = self.markup.diff_info[span]
+                for comment in comments:
                     self.text_menu.add_command(label=f"RESOLVE: {comment}",
-                                               command=partial(self.resolve_diff, span=span, shared=False))
-                if shared_comment is not None:
+                                               command=partial(self.resolve_diff, span=span, comment=comment,
+                                                               shared=False))
+                for shared_comment in shared_comments:
                     self.text_menu.add_command(label=f"RESOLVE: {shared_comment}",
-                                               command=partial(self.resolve_diff, span=span, shared=True))
+                                               command=partial(self.resolve_diff, span=span, comment=shared_comment,
+                                                               shared=True))
 
             if selected_span_text is not None:
                 self.text_menu.add_command(label=f"Link with «{selected_span_text}»",
@@ -447,7 +449,7 @@ class Application(ttk.Frame):
         if "diff" in data:
             for entry in data["diff"]:
                 span = self.text_box.convert_char_to_tk(entry["span"])
-                markup.diff_info[span] = DiffInfo(entry["comment"], entry["shared_comment"])
+                markup.diff_info[span] = DiffInfo(entry["comments"], entry["shared_comments"])
         self.markup = markup
 
     def redo(self):
@@ -457,17 +459,16 @@ class Application(ttk.Frame):
             self.render_entities()
 
     @undoable
-    def resolve_diff(self, span: Span, shared: bool = False):
+    def resolve_diff(self, span: Span, comment: str, shared: bool = False):
         if shared:
-            span_comment = self.markup.diff_info[span].shared_comment
             entity_idx = self.markup.get_entity(span)
             for sibling in self.markup.get_spans(entity_idx):
-                if sibling in self.markup.diff_info and self.markup.diff_info[sibling].shared_comment == span_comment:
-                    self.markup.diff_info[sibling].shared_comment = None
+                if sibling in self.markup.diff_info and comment in self.markup.diff_info[sibling].shared_comments:
+                    self.markup.diff_info[sibling].shared_comments.remove(comment)
                     if self.markup.diff_info[sibling].is_empty():
                         del self.markup.diff_info[sibling]
         else:
-            self.markup.diff_info[span].comment = None
+            self.markup.diff_info[span].comments.remove(comment)
             if self.markup.diff_info[span].is_empty():
                 del self.markup.diff_info[span]
         self.color_spans_for_diff()
@@ -635,10 +636,10 @@ class Application(ttk.Frame):
 
         if self.markup.diff_info:
             state["diff"] = []
-            for span, (comment, shared_comment) in self.markup.diff_info.items():
+            for span, (comments, shared_comments) in self.markup.diff_info.items():
                 state["diff"].append({"span": self.text_box.convert_tk_to_char(span),
-                                      "comment": comment,
-                                      "shared_comment": shared_comment})
+                                      "comments": comments,
+                                      "shared_comments": shared_comments})
 
         with open(path, mode="w", encoding="utf8") as f:
             json.dump(state, f, ensure_ascii=False)
