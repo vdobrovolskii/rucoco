@@ -3,5 +3,3 @@
 .vscode/*
 venv/*
 settings.json
-experts/
-examples/
