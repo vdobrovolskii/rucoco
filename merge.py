@@ -96,7 +96,7 @@ class DiffHandler():
                     "comments": regular_comments,
                     "shared_comments": shared_comments})
             else:
-                logging.debug(f"DIFF: failed to write diff for {span} («{markup.text[slice(*span)]}»)")
+                logging.debug(f"DIFF: failed to write diff for «{markup.text[slice(*span)]}» {span}")
         return out
 
 
@@ -196,7 +196,7 @@ def deduplicate(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
                 seen_spans.add(span_info.span)
                 spans.append(span_info)
             else:
-                logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span_info.span)]}»")
+                logging.info(f"CLEAN: deleted duplicate span «{text[slice(*span_info.span)]}» {span_info.span}")
                 DiffHandler().add("deleted duplicate span", span_info.span)
         yield spans
 
@@ -223,7 +223,7 @@ def fix_discontinuous_spans(entities: Iterable[EntityInfo], text: str) -> Iterat
         fixed_spans = []
         for end, start in end2start.items():
             if start in affected_starts:
-                logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}»")
+                logging.info(f"CLEAN: fixed discontinuous span «{text[start:end]}» {(start, end)}")
                 DiffHandler().add("fixed discontinuous span", (start, end))
                 new_span = (start, end)
                 parents = set()
@@ -257,10 +257,22 @@ def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator
                 non_overlapping_spans.append(span_info)
             else:
                 span_info.unlink_all_parents_and_children()
-                logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}»")
+                logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}» {span}")
                 preserved_span = next(si.span for si in non_overlapping_spans if si.span[0] <= span[0] < si.span[1])
                 DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", preserved_span)
         yield non_overlapping_spans
+
+
+def get_entity_name(span: Span, markup: Markup, max_spans: int = 3) -> str:
+    entity = next(entity for entity in markup.entities if span in entity)
+    text_spans = []
+    for span in entity:
+        text_span = markup.text[slice(*span)]
+        if text_span not in text_spans:
+            text_spans.append(text_span)
+            if len(text_spans) == max_spans:
+                break
+    return "//".join(["«{}»"] * len(text_spans)).format(*text_spans)
 
 
 def get_links(markup: Markup) -> Set[Tuple[Span, Span]]:
@@ -310,16 +322,16 @@ def merge(a: Markup, b: Markup) -> Markup:
         if link not in common_links:
             source, target = link
             if source in common_spans and target in common_spans:
-                logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"added link to «{text[slice(*target)]}»", source)
-                DiffHandler().add(f"added link to «{text[slice(*source)]}»", target)
+                logging.info(f"MERGE: «{text[slice(*source)]}» {source} + «{text[slice(*target)]}» {target} missing from B")
+                DiffHandler().add(f"added link to {get_entity_name(target, a)}", source)
+                DiffHandler().add(f"added link to {get_entity_name(source, a)}", target)
     for link in b_links:
         if link not in common_links:
             source, target = link
             if source in common_spans and target in common_spans:
-                logging.info(f"MERGE: «{text[slice(*source)]}» + «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"added link to «{text[slice(*target)]}»", source)
-                DiffHandler().add(f"added link to «{text[slice(*source)]}»", target)
+                logging.info(f"MERGE: «{text[slice(*source)]}» {source} + «{text[slice(*target)]}» {target} missing from A")
+                DiffHandler().add(f"added link to {get_entity_name(target, b)}", source)
+                DiffHandler().add(f"added link to {get_entity_name(source, b)}", target)
 
     a_parent_links, b_parent_links = get_parent_links(a), get_parent_links(b)
     common_parent_links = a_parent_links & b_parent_links
@@ -328,16 +340,16 @@ def merge(a: Markup, b: Markup) -> Markup:
         if link not in common_parent_links:
             source, target = link
             if source in common_spans and target in common_spans:
-                logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from B")
-                DiffHandler().add(f"added child: «{text[slice(*target)]}»", source, shared=True)
-                DiffHandler().add(f"added parent: «{text[slice(*source)]}»", target, shared=True)
+                logging.info(f"MERGE: «{text[slice(*source)]}» {source} > «{text[slice(*target)]}» {target} missing from B")
+                DiffHandler().add(f"added child: {get_entity_name(target, a)}", source, shared=True)
+                DiffHandler().add(f"added parent: {get_entity_name(source, a)}", target, shared=True)
     for link in b_parent_links:
         if link not in common_parent_links:
             source, target = link
             if source in common_spans and target in common_spans:
-                logging.info(f"MERGE: «{text[slice(*source)]}» > «{text[slice(*target)]}» missing from A")
-                DiffHandler().add(f"added child: «{text[slice(*target)]}»", source, shared=True)
-                DiffHandler().add(f"added parent: «{text[slice(*source)]}»", target, shared=True)
+                logging.info(f"MERGE: «{text[slice(*source)]}» {source} > «{text[slice(*target)]}» {target} missing from A")
+                DiffHandler().add(f"added child: {get_entity_name(target, b)}", source, shared=True)
+                DiffHandler().add(f"added parent: {get_entity_name(source, b)}", target, shared=True)
 
     # These are spans that only have parent links, but not normal links
     a_singletons, b_singletons = get_singletons(a), get_singletons(b)
@@ -380,7 +392,7 @@ def remove_singletons(entities: List[EntityInfo], text: str) -> Iterator[EntityI
         if len(entity) > 1 or any(span.has_parent_links() for span in entity):
             yield entity
         elif entity:
-            logging.info(f"CLEAN: deleted singleton «{text[slice(*entity[0].span)]}»")
+            logging.info(f"CLEAN: deleted singleton «{text[slice(*entity[0].span)]}» {entity[0].span}")
         else:
             logging.info("CLEAN: deleted empty entity")
 
@@ -397,20 +409,23 @@ def strip_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
             span_info.span = new_span
 
             if (start, end) != new_span:
-                logging.info(f"CLEAN: «{text[start:end]}» -> «{text[slice(*new_span)]}»")
+                logging.info(f"CLEAN: «{text[start:end]}» {(start, end)} -> «{text[slice(*new_span)]}» {new_span}")
                 DiffHandler().add(f"stripped from «{text[start:end]}»", new_span)
 
         yield entity
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(message)s")
     argparser = argparse.ArgumentParser()
     argparser.add_argument("a", help="Path to a markup file.")
     argparser.add_argument("b", help="Path to another markup file.")
     argparser.add_argument("--out", "-o", required=True,
                            help="Output file name/path.")
+    argparser.add_argument("--debug", action="store_true",
+                           help="Log debug messages.")
     args = argparser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format="%(message)s")
 
     paths = (args.a, args.b)
 
