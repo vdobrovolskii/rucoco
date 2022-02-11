@@ -423,6 +423,10 @@ if __name__ == "__main__":
                            help="Output file name/path.")
     argparser.add_argument("--debug", action="store_true",
                            help="Log debug messages.")
+    argparser.add_argument("--no-diff", action="store_true",
+                           help="Removes diff information from the output")
+    argparser.add_argument("--no-parents", action="store_true",
+                           help="Removes parent-child relationships from the output")
     args = argparser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO, format="%(message)s")
@@ -441,14 +445,19 @@ if __name__ == "__main__":
         logging.info(f"Cleaning {path}")
         clean(version)
 
+        if args.no_parents:
+            logging.warning(f"Removing parents from {path}")
+            version.includes = [[] for _ in version.entities]
+
     logging.info("Merging")
     merged = merge(*versions)
     clean(merged)
 
     out = asdict(merged)
-    diff = DiffHandler().get_diff(merged)
-    if diff:
-        out["diff"] = diff
+    if not args.no_diff:
+        diff = DiffHandler().get_diff(merged)
+        if diff:
+            out["diff"] = diff
 
     with open(args.out, mode="w", encoding="utf8") as f:
         json.dump(out, f, ensure_ascii=False)
