@@ -22,7 +22,9 @@ def agreement(pairs: Iterable[DocumentPair]):
     for pair in sorted(pairs):
         a = read_markup_dict(os.path.join(pair.dir_a, pair.filename))
         b = read_markup_dict(os.path.join(pair.dir_b, pair.filename))
-        assert a["text"] == b["text"]
+        if a["text"] != b["text"]:
+            print(f"mismatching texts for documents: {pair.filename} in {pair.dir_a} and {pair.dir_b}", file=sys.stderr)
+            continue
 
         a_clusters = [(spans, get_children(a, i))
                       for i, spans in enumerate(a["entities"])]
