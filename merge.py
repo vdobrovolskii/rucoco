@@ -19,6 +19,12 @@ class Markup:
     text: str
 
 
+class CircularLinkException(Exception):
+    def __init__(self, message: str, path: List["SpanInfo"]):
+        super().__init__(message)
+        self.path = path
+
+
 class SpanInfo:
     def __init__(self, span: Span):
         self.span = span
@@ -26,10 +32,18 @@ class SpanInfo:
         self.children: Set[SpanInfo] = set()
 
     @staticmethod
-    def have_parent_link(*, ancestor: "SpanInfo", descendant: "SpanInfo") -> bool:
+    def have_parent_link(*,
+                         ancestor: "SpanInfo",
+                         descendant: "SpanInfo",
+                         visited: Optional[List["SpanInfo"]] = None) -> bool:
+        if visited is None:
+            visited = []
+        if ancestor in visited:
+            raise CircularLinkException(f"Circular link detected", visited + [ancestor])
+        visited = visited + [ancestor]
         return (
             descendant in ancestor.children
-            or any(SpanInfo.have_parent_link(ancestor=child, descendant=descendant)
+            or any(SpanInfo.have_parent_link(ancestor=child, descendant=descendant, visited=visited)
                    for child in ancestor.children)
         )
 
@@ -52,16 +66,6 @@ class SpanInfo:
             SpanInfo.unlink(parent=parent, child=self)
         for child in list(self.children):
             SpanInfo.unlink(parent=self, child=child)
-
-    def unlink_redundant_children(self):
-        """ Unlinks children that are also grand+children. """
-        grandchilren: Set[SpanInfo] = set()
-        for child in self.children:
-            if any(SpanInfo.have_parent_link(ancestor=another_child, descendant=child)
-                   for another_child in self.children - {child}):
-                grandchilren.add(child)
-        for grandchild in grandchilren:
-            SpanInfo.unlink(parent=self, child=grandchild)
 
     def __lt__(self, other: "SpanInfo") -> bool:
         return self.span.__lt__(other.span)
@@ -98,6 +102,12 @@ class DiffHandler():
             else:
                 logging.debug(f"DIFF: failed to write diff for «{markup.text[slice(*span)]}» {span}")
         return out
+
+
+def are_overlapping(a: Span, b: Span) -> bool:
+    combined_length = a[1] - a[0] + b[1] - b[0]
+    actual_length = max(a[1], b[1]) - min(a[0], b[0])
+    return actual_length < combined_length
 
 
 def build_entities(links: Set[Tuple[Span, Span]], singletons: Set[Span]) -> List[Entity]:
@@ -149,10 +159,8 @@ def clean(markup: Markup):
             for parent_span in entities[parent_idx]:
                 for child_span in entities[child_idx]:
                     SpanInfo.link(parent=parent_span, child=child_span)
-    for entity in entities:
-        for span in entity:
-            span.unlink_redundant_children()
 
+    entities = unlink_redundant_children(entities, markup.text)
     entities = remove_singletons(entities, markup.text)
     entities = fix_overlapping_spans(entities, markup.text)
     entities = fix_discontinuous_spans(entities, markup.text)
@@ -258,7 +266,7 @@ def fix_overlapping_spans(entities: Iterable[EntityInfo], text: str) -> Iterator
             else:
                 span_info.unlink_all_parents_and_children()
                 logging.info(f"CLEAN: deleted overlapping span «{text[slice(*span)]}» {span}")
-                preserved_span = next(si.span for si in non_overlapping_spans if si.span[0] <= span[0] < si.span[1])
+                preserved_span = next(si.span for si in non_overlapping_spans if are_overlapping(si.span, span))
                 DiffHandler().add(f"deleted overlapping «{text[slice(*span)]}»", preserved_span)
         yield non_overlapping_spans
 
@@ -412,6 +420,33 @@ def strip_spans(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInf
                 logging.info(f"CLEAN: «{text[start:end]}» {(start, end)} -> «{text[slice(*new_span)]}» {new_span}")
                 DiffHandler().add(f"stripped from «{text[start:end]}»", new_span)
 
+        yield entity
+
+
+def unlink_redundant_children(entities: Iterable[EntityInfo], text: str) -> Iterator[EntityInfo]:
+    for entity in entities:
+        for span in entity:
+            grandchilren: Set[SpanInfo] = set()
+            children = set(span.children)
+            while children:
+                child = children.pop()
+                try:
+                    if any(SpanInfo.have_parent_link(ancestor=another_child, descendant=child)
+                            for another_child in span.children - {child}):
+                        grandchilren.add(child)
+                except CircularLinkException as e:
+                    children.add(child)  # repeat the iteration
+                    source, target = e.path[-2:]
+                    SpanInfo.unlink(parent=source, child=target)
+                    logging.info(f"CLEAN: loop detected, deleted parent link:"
+                                 f" «{text[slice(*source.span)]}» {source.span} >"
+                                 f" «{text[slice(*target.span)]}» {target.span}")
+                    DiffHandler().add(f"removed child (loop detected):"
+                                      f" «{text[slice(*target.span)]}»", source.span, shared=True)
+                    DiffHandler().add(f"removed parent (loop detected):"
+                                      f" «{text[slice(*source.span)]}»", target.span, shared=True)
+            for grandchild in grandchilren:
+                SpanInfo.unlink(parent=span, child=grandchild)
         yield entity
 
 
