@@ -430,6 +430,14 @@ def unlink_redundant_children(entities: Iterable[EntityInfo], text: str) -> Iter
             children = set(span.children)
             while children:
                 child = children.pop()
+                if child is span:
+                    SpanInfo.unlink(parent=child, child=child)
+                    logging.info(f"CLEAN: loop detected, deleted parent link:"
+                                 f" «{text[slice(*child.span)]}» {child.span} >"
+                                 f" «{text[slice(*child.span)]}» {child.span}")
+                    DiffHandler().add(f"removed child (self-loop detected):"
+                                      f" «{text[slice(*child.span)]}»", child.span, shared=True)
+                    continue
                 try:
                     if any(SpanInfo.have_parent_link(ancestor=another_child, descendant=child)
                             for another_child in span.children - {child}):
