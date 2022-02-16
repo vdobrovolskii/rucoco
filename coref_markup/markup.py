@@ -14,7 +14,7 @@ class DiffInfo:
         return iter(getattr(self, field.name) for field in fields(self))
 
     def is_empty(self):
-        return all(value for value in self)
+        return all(not value for value in self)
 
 
 class Entity:
