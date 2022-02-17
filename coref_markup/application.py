@@ -506,12 +506,18 @@ class Application(ttk.Frame):
 
     @undoable
     def unlink_span(self, span: Span):
+        diff_info = deepcopy(self.markup.diff_info[span]) if span in self.markup.diff_info else None
+
         removed_entity = self.markup.delete_span(span)
         if removed_entity is not None:
             self.color_stack.append(self.entity2color.pop(removed_entity))
             if self.selected_entity == removed_entity:
                 self.selected_entity = None
         self.markup.new_entity(span)
+
+        if diff_info is not None:
+            self.markup.diff_info[span] = diff_info
+
         self.render_entities()
 
     def update_span_boundaries(self, span: Span):
