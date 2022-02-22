@@ -21,10 +21,10 @@
     python diff.py text_1.json text_2.json
 
 ### Благодарности
-Спасибо нашей замечательной команде аннотаторов: \
-Анастасия Каверина \
-Виктория Малафеева \
-[Анжела Шумилова](https://github.com/AngelaShumilova) 
+Спасибо нашей замечательной команде аннотаторов:
+* Анастасия Каверина
+* Виктория Малафеева
+* [Анжела Шумилова](https://github.com/AngelaShumilova) 
 
 </br>
 </br>
@@ -46,7 +46,7 @@ Markup diff tool:
     python diff.py text_1.json text_2.json
     
 ### Acknowledgements
-Many thanks to our amazing annotators' team: \
-Anastasiya Kaverina \
-Victoria Malafeeva \
-[Angela Shumilova](https://github.com/AngelaShumilova)
+Many thanks to our amazing annotators' team:
+* Anastasiya Kaverina
+* Victoria Malafeeva
+* [Angela Shumilova](https://github.com/AngelaShumilova)
