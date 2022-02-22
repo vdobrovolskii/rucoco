@@ -26,6 +26,7 @@
 * Анастасия Каверина
 * Виктория Малафеева
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
+* [Лиса была здесь](https://github.com/xiaoliska)
 
 </br>
 </br>
@@ -52,3 +53,4 @@ Many thanks to our amazing annotators' team:
 * Anastasiya Kaverina
 * Victoria Malafeeva
 * [Angela Shumilova](https://github.com/AngelaShumilova)
+* [Lisa was here](https://github.com/xiaoliska)
