@@ -28,6 +28,7 @@
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
+* [Ирина Гусева](https://github.com/irinaguseva)
 
 </br>
 </br>
@@ -56,3 +57,4 @@ Many thanks to our amazing annotators' team:
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Lisa was here](https://github.com/xiaoliska)
+* [Irina Guseva](https://github.com/irinaguseva)
