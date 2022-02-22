@@ -29,7 +29,7 @@
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
-
+* [Дарья Власова](https://github.com/Dariavld)
 
 </br>
 </br>
@@ -59,3 +59,4 @@ Many thanks to our amazing annotators' team:
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Lisa was here](https://github.com/xiaoliska)
+* [Daria Vlasova](https://github.com/Dariavld)
