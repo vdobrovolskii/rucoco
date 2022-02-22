@@ -23,13 +23,13 @@
 ### Благодарности
 Спасибо нашей замечательной команде аннотаторов:
 * Денис Булаев
+* [Дарья Власова](https://github.com/Dariavld)
 * [Ирина Гусева](https://github.com/irinaguseva)
 * Анастасия Каверина
 * Виктория Малафеева
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
-
 
 </br>
 </br>
@@ -58,4 +58,5 @@ Many thanks to our amazing annotators' team:
 * Victoria Malafeeva
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
+* [Daria Vlasova](https://github.com/Dariavld)
 * [Lisa was here](https://github.com/xiaoliska)
