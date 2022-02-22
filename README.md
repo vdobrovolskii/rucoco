@@ -20,6 +20,10 @@
 
     python diff.py text_1.json text_2.json
 
+### Благодарности
+Спасибо нашей замечательной команде аннотаторов:
+
+
 </br>
 </br>
 
@@ -38,3 +42,6 @@ Markup merge tool:
 Markup diff tool:
 
     python diff.py text_1.json text_2.json
+    
+### Acknowledgements
+Many thanks to our amazing annotators' team:
