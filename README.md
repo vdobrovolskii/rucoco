@@ -23,12 +23,13 @@
 ### Благодарности
 Спасибо нашей замечательной команде аннотаторов:
 * Денис Булаев
+* [Ирина Гусева](https://github.com/irinaguseva)
 * Анастасия Каверина
 * Виктория Малафеева
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
-* [Ирина Гусева](https://github.com/irinaguseva)
+
 
 </br>
 </br>
@@ -52,9 +53,9 @@ Markup diff tool:
 ### Acknowledgements
 Many thanks to our amazing annotators' team:
 * Denis Bulaev
+* [Irina Guseva](https://github.com/irinaguseva)
 * Anastasiya Kaverina
 * Victoria Malafeeva
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Lisa was here](https://github.com/xiaoliska)
-* [Irina Guseva](https://github.com/irinaguseva)
