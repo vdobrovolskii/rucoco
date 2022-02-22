@@ -22,6 +22,7 @@
 
 ### Благодарности
 Спасибо нашей замечательной команде аннотаторов:
+* Денис Булаев
 * Анастасия Каверина
 * Виктория Малафеева
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
@@ -47,6 +48,7 @@ Markup diff tool:
     
 ### Acknowledgements
 Many thanks to our amazing annotators' team:
+* Denis Bulaev
 * Anastasiya Kaverina
 * Victoria Malafeeva
 * [Angela Shumilova](https://github.com/AngelaShumilova)
