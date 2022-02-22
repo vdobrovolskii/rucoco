@@ -22,7 +22,7 @@
 
 ### Благодарности
 Спасибо нашей замечательной команде аннотаторов:
-
+Анжела Шумилова
 
 </br>
 </br>
@@ -45,3 +45,4 @@ Markup diff tool:
     
 ### Acknowledgements
 Many thanks to our amazing annotators' team:
+Angela Shumilova
