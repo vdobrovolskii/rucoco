@@ -25,6 +25,7 @@
 * Денис Булаев
 * Анастасия Каверина
 * Виктория Малафеева
+* Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
 
@@ -52,5 +53,6 @@ Many thanks to our amazing annotators' team:
 * Denis Bulaev
 * Anastasiya Kaverina
 * Victoria Malafeeva
+* Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Lisa was here](https://github.com/xiaoliska)
