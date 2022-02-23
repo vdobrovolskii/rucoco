@@ -22,15 +22,17 @@
 
 ### Благодарности
 Спасибо нашей замечательной команде аннотаторов:
+* Арина Акимова
 * Денис Булаев
 * [Дарья Власова](https://github.com/Dariavld)
 * [Ирина Гусева](https://github.com/irinaguseva)
 * Анастасия Каверина
 * Виктория Малафеева
 * Людмила Шляхтина
-* [Анжела Шумилова](https://github.com/AngelaShumilova) 
-* [Лиса была здесь](https://github.com/xiaoliska)
+* [Анжела Шумилова](https://github.com/AngelaShumilova)
 * [Нина Юрчук](https://github.com/Satynth)
+* [Лиса была здесь](https://github.com/xiaoliska)
+
 
 </br>
 </br>
@@ -53,6 +55,7 @@ Markup diff tool:
     
 ### Acknowledgements
 Many thanks to our amazing annotators' team:
+* Arina Akimova
 * Denis Bulaev
 * [Irina Guseva](https://github.com/irinaguseva)
 * Anastasiya Kaverina
@@ -60,5 +63,5 @@ Many thanks to our amazing annotators' team:
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Daria Vlasova](https://github.com/Dariavld)
-* [Lisa was here](https://github.com/xiaoliska)
 * [Nina Yurchuk](https://github.com/Satynth)
+* [Lisa was here](https://github.com/xiaoliska)
