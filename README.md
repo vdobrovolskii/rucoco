@@ -30,6 +30,7 @@
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova) 
 * [Лиса была здесь](https://github.com/xiaoliska)
+* [Нина Юрчук](https://github.com/Satynth)
 
 </br>
 </br>
@@ -60,3 +61,4 @@ Many thanks to our amazing annotators' team:
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Daria Vlasova](https://github.com/Dariavld)
 * [Lisa was here](https://github.com/xiaoliska)
+* [Nina Yurchuk](https://github.com/Satynth)
