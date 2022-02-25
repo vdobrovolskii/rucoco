@@ -26,6 +26,8 @@
 * Денис Булаев
 * [Дарья Власова](https://github.com/Dariavld)
 * [Ирина Гусева](https://github.com/irinaguseva)
+* Дарья Дьячкова
+* [Амина Зиновьева](https://github.com/AminaZi)
 * Анастасия Каверина
 * Виктория Малафеева
 * Людмила Шляхтина
@@ -57,6 +59,7 @@ Markup diff tool:
 Many thanks to our amazing annotators' team:
 * Arina Akimova
 * Denis Bulaev
+* Darya Dyachkova
 * [Irina Guseva](https://github.com/irinaguseva)
 * Anastasiya Kaverina
 * Victoria Malafeeva
@@ -64,4 +67,5 @@ Many thanks to our amazing annotators' team:
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * [Daria Vlasova](https://github.com/Dariavld)
 * [Nina Yurchuk](https://github.com/Satynth)
+* [Amina Zinowyeva](https://github.com/AminaZi)
 * [Lisa was here](https://github.com/xiaoliska)
