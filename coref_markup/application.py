@@ -11,6 +11,7 @@ from typing import *
 from coref_markup.const import *
 from coref_markup.find_bar import FindBar
 from coref_markup.label_panel import LabelPanel
+from coref_markup.menubar import Menubar
 from coref_markup.markup import DiffInfo, Span, Markup
 from coref_markup.markup_text import MarkupText
 from coref_markup.markup_label import MarkupLabel
@@ -79,7 +80,7 @@ class Application(ttk.Frame):
         label_menu = tk.Menu(self, tearoff=0)
 
         # Menu
-        menubar = tk.Menu()
+        menubar = Menubar()
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="Open...", command=self.open_file_handler)
         file_menu.add_command(label="Save", command=self.save_file_handler, accelerator="Ctrl+s")
@@ -89,6 +90,8 @@ class Application(ttk.Frame):
         edit_menu.add_command(label="Undo", command=self.undo, accelerator="Ctrl+z")
         edit_menu.add_command(label="Redo", command=self.redo, accelerator="Ctrl+y")
         edit_menu.add_command(label="Find...", command=self.toggle_find_bar, accelerator="Ctrl+f")
+        edit_menu.add_separator()
+        edit_menu.add_command(label="Resolve All", command=self.resolve_all_diffs, state="disabled")
         menubar.add_cascade(label="Edit", menu=edit_menu)
         view_menu = tk.Menu(menubar, tearoff=0)
         view_menu.add_command(label="Font +", command=text_box.font_increase, accelerator="Ctrl++")
@@ -144,6 +147,7 @@ class Application(ttk.Frame):
         self.status_bar = status_bar
         self.text_box = text_box
         self.label_menu = label_menu
+        self.menubar = menubar
         self.text_menu = text_menu
 
     def reset_state(self):
@@ -459,6 +463,14 @@ class Application(ttk.Frame):
             self.render_entities()
 
     @undoable
+    def resolve_all_diffs(self):
+        if self.markup.diff_info:
+            self.markup.diff_info.clear()
+            self.color_spans_for_diff()
+        else:
+            self.set_status("No differences to resolve")
+
+    @undoable
     def resolve_diff(self, span: Span, comment: str, shared: bool = False):
         if shared:
             entity_idx = self.markup.get_entity(span)
@@ -559,6 +571,7 @@ class Application(ttk.Frame):
 
     def color_spans_for_diff(self):
         if self.markup.diff_info:
+            self.menubar.get_cascade("Edit").entryconfig("Resolve All", state="normal")
             colored = set(self.markup.diff_info.keys())
             for entity_idx in self.markup.get_entities():
                 for span in self.markup.get_spans(entity_idx):
@@ -567,6 +580,7 @@ class Application(ttk.Frame):
                     else:
                         self.text_box.dim_highlight(span)
         else:
+            self.menubar.get_cascade("Edit").entryconfig("Resolve All", state="disabled")
             self.text_box.restore_all_highlights()
             self.set_status("No more diffs left, returning to normal view")
 
