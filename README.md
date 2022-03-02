@@ -1,4 +1,4 @@
-# coref-corpus
+# RuCoCo (Russian Coreference Corpus)
 
 **See below for the English version.**
 
