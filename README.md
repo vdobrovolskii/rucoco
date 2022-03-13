@@ -31,6 +31,7 @@
 * Анастасия Каверина
 * Виктория Малафеева
 * Юлия Скрипкарь
+* [Мария Уварова](https://github.com/marie-uvarova)
 * Людмила Шляхтина
 * [Анжела Шумилова](https://github.com/AngelaShumilova)
 * [Нина Юрчук](https://github.com/Satynth)
@@ -67,6 +68,7 @@ Many thanks to our amazing annotators' team:
 * Liudmila Shlyakhtina
 * [Angela Shumilova](https://github.com/AngelaShumilova)
 * Julia Skripkar
+* [Mariya Uvarova](https://github.com/marie-uvarova)
 * [Daria Vlasova](https://github.com/Dariavld)
 * [Nina Yurchuk](https://github.com/Satynth)
 * [Amina Zinowyeva](https://github.com/AminaZi)
