@@ -35,6 +35,7 @@
 * [Анжела Шумилова](https://github.com/AngelaShumilova)
 * [Нина Юрчук](https://github.com/Satynth)
 * [Лиса была здесь](https://github.com/xiaoliska)
+* [Мария Уварова](https://github.com/marie-uvarova)
 
 
 </br>
@@ -71,3 +72,4 @@ Many thanks to our amazing annotators' team:
 * [Nina Yurchuk](https://github.com/Satynth)
 * [Amina Zinowyeva](https://github.com/AminaZi)
 * [Lisa was here](https://github.com/xiaoliska)
+* [Mariya Uvarova](https://github.com/marie-uvarova)
