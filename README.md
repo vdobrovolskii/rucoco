@@ -1,5 +1,8 @@
 # RuCoCo (Russian Coreference Corpus)
 
+[Скачать](https://github.com/vdobrovolskii/rucoco/releases) корпус. \
+[Download](https://github.com/vdobrovolskii/rucoco/releases) the corpus.
+
 **See below for the English version.**
 
 </br>
