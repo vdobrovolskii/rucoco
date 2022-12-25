@@ -3,6 +3,7 @@ from collections import defaultdict
 import os
 import sys
 from typing import *
+from warnings import simplefilter, warn
 
 from diff import f1, get_children, _lea_children, read_markup_dict
 
@@ -23,7 +24,7 @@ def agreement(pairs: Iterable[DocumentPair]):
         a = read_markup_dict(os.path.join(pair.dir_a, pair.filename))
         b = read_markup_dict(os.path.join(pair.dir_b, pair.filename))
         if a["text"] != b["text"]:
-            print(f"mismatching texts for documents: {pair.filename} in {pair.dir_a} and {pair.dir_b}", file=sys.stderr)
+            warn(f"mismatching texts for documents: {pair.filename} in {pair.dir_a} and {pair.dir_b}")
             continue
 
         a_clusters = [(spans, get_children(a, i))
@@ -58,14 +59,13 @@ def get_pairs_from_dir(path: str) -> List[DocumentPair]:
     pairs = []
     for name, paths in name2paths.items():
         if len(paths) == 1:
-            print(f"No matching document for {paths[0]}")
+            warn(f"No matching document for {paths[0]}")
         elif len(paths) > 2:
-            print(f"Too many matching documents: {', '.join(paths)}")
+            warn(f"Too many matching documents: {', '.join(paths)}")
         else:
             pairs.append(
                 DocumentPair(name, *(os.path.dirname(path) for path in paths))
             )
-    print()
     return pairs
 
 
@@ -76,11 +76,9 @@ def get_pairs_from_two_dirs(a: str,
     common_files = a_files & b_files
 
     for file in a_files - common_files:
-        print(f"No matching document for {os.path.join(a, file)}")
+        warn(f"No matching document for {os.path.join(a, file)}")
     for file in b_files - common_files:
-        print(f"No matching document for {os.path.join(b, file)}")
-
-    print()
+        warn(f"No matching document for {os.path.join(b, file)}")
     return [DocumentPair(filename, a, b) for filename in common_files]
 
 
@@ -103,7 +101,11 @@ if __name__ == "__main__":
     argparser.add_argument("src", nargs="+",
                            help="Directory or directories (max 2)"
                                 " with documents to compare.")
+    argparser.add_argument("--strict", action="store_true")
     args = argparser.parse_args()
+
+    if args.strict:
+        simplefilter("error")
 
     if len(args.src) == 1:
         pairs = get_pairs_from_dir(*args.src)
